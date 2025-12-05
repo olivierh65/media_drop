@@ -1,0 +1,92 @@
+media_drop.admin_settings:
+  path: '/admin/config/media/media-drop'
+  defaults:
+    _form: '\Drupal\media_drop\Form\AdminSettingsForm'
+    _title: 'Media Drop Settings'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.album_list:
+  path: '/admin/config/media/media-drop/albums'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\AlbumController::listAlbums'
+    _title: 'Albums'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.album_add:
+  path: '/admin/config/media/media-drop/albums/add'
+  defaults:
+    _form: '\Drupal\media_drop\Form\AlbumForm'
+    _title: 'Add album'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.album_edit:
+  path: '/admin/config/media/media-drop/albums/{album_id}/edit'
+  defaults:
+    _form: '\Drupal\media_drop\Form\AlbumForm'
+    _title: 'Edit album'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.album_delete:
+  path: '/admin/config/media/media-drop/albums/{album_id}/delete'
+  defaults:
+    _form: '\Drupal\media_drop\Form\AlbumDeleteForm'
+    _title: 'Delete album'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.mime_mapping:
+  path: '/admin/config/media/media-drop/mime-mapping'
+  defaults:
+    _form: '\Drupal\media_drop\Form\MimeMappingForm'
+    _title: 'MIME Mappings'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.upload:
+  path: '/media-drop/{album_token}'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::uploadPage'
+    _title: 'Drop media'
+  requirements:
+    _access: 'TRUE'
+
+media_drop.ajax_upload:
+  path: '/media-drop/{album_token}/ajax-upload'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::ajaxUpload'
+  requirements:
+    _custom_access: '\Drupal\media_drop\Controller\UploadController::checkUploadAccess'
+  options:
+    no_cache: TRUE
+
+media_drop.ajax_create_folder:
+  path: '/media-drop/{album_token}/create-folder'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::createFolder'
+  requirements:
+    _permission: 'create album folders'
+  options:
+    no_cache: TRUE
+
+media_drop.ajax_list_media:
+  path: '/media-drop/{album_token}/list-media'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::listMedia'
+  requirements:
+    _permission: 'view own uploaded media'
+  options:
+    no_cache: TRUE
+
+media_drop.ajax_delete_media:
+  path: '/media-drop/{album_token}/delete-media/{media_id}'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::deleteMedia'
+  requirements:
+    _permission: 'delete own uploaded media'
+  methods: [DELETE, POST]
+  options:
+    no_cache: TRUE

@@ -1,0 +1,10 @@
+name: Media Drop
+type: module
+description: 'Allows users to bulk upload photos and videos into organized albums with media type management'
+core_version_requirement: ^10 || ^11
+package: Media
+dependencies:
+  - drupal:file
+  - drupal:user
+  - drupal:media
+configure: media_drop.admin_settings

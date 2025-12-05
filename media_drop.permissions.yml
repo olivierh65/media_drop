@@ -1,0 +1,20 @@
+administer media drop:
+  title: 'Administer Media Drop'
+  description: 'Manage albums, settings, and media type mappings'
+  restrict access: true
+
+upload media to albums:
+  title: 'Upload media to albums'
+  description: 'Allows uploading files to albums'
+
+view own uploaded media:
+  title: 'View own media'
+  description: 'Allows viewing media that the user has uploaded'
+
+delete own uploaded media:
+  title: 'Delete own media'
+  description: 'Allows deleting media that the user has uploaded'
+
+create album folders:
+  title: 'Create subfolders in albums'
+  description: 'Allows creating subfolders to organize media'

@@ -1,0 +1,254 @@
+/**
+ * @file
+ * Styles pour l'interface Media Drop
+ */
+
+#media-drop-upload-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.media-drop-header {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.media-drop-header h1 {
+  color: #333;
+  font-size: 2em;
+  margin: 0;
+}
+
+.media-drop-user-info {
+  background: #f5f5f5;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+}
+
+.media-drop-user-info.authenticated {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.media-drop-user-info.anonymous {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.media-drop-user-info p {
+  margin: 0;
+  font-size: 1em;
+}
+
+.media-drop-user-info p strong {
+  color: #0087F7;
+}
+
+.media-drop-user-info label {
+  font-weight: bold;
+  margin: 0;
+}
+
+.media-drop-user-info input[type="text"] {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+.media-drop-folder-section {
+  background: #fff;
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.media-drop-folder-section label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.folder-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.folder-controls select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+#new-folder-form {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 3px;
+  margin-top: 10px;
+}
+
+#new-folder-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+.media-drop-dropzone {
+  margin-bottom: 30px;
+}
+
+.dropzone {
+  border: 2px dashed #0087F7;
+  border-radius: 5px;
+  background: #f8f8f8;
+  min-height: 200px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+.dropzone:hover {
+  background: #f0f0f0;
+  border-color: #0066cc;
+}
+
+.dropzone .dz-message {
+  font-size: 1.2em;
+  color: #666;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.dropzone.dz-drag-hover {
+  background: #e8f4fd;
+  border-color: #0066cc;
+}
+
+.media-drop-no-permission {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  padding: 20px;
+  border-radius: 5px;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.media-drop-gallery {
+  margin-top: 40px;
+}
+
+.media-drop-gallery h2 {
+  font-size: 1.5em;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.media-item {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  text-align: center;
+  transition: box-shadow 0.3s ease;
+}
+
+.media-item:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.media-item img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 3px;
+  margin-bottom: 10px;
+}
+
+.media-name {
+  font-weight: bold;
+  margin: 5px 0;
+  word-break: break-word;
+}
+
+.media-folder {
+  font-size: 0.9em;
+  color: #666;
+  font-style: italic;
+  margin: 5px 0;
+}
+
+.button {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.button:hover {
+  background: #f5f5f5;
+}
+
+.button--primary {
+  background: #0087F7;
+  color: #fff;
+  border-color: #0087F7;
+}
+
+.button--primary:hover {
+  background: #0066cc;
+  border-color: #0066cc;
+}
+
+.button--danger {
+  background: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
+
+.button--danger:hover {
+  background: #c82333;
+  border-color: #c82333;
+}
+
+.button--small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .media-drop-user-info {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .folder-controls {
+    flex-direction: column;
+  }
+
+  #new-folder-form {
+    flex-direction: column;
+  }
+}

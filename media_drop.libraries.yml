@@ -1,0 +1,21 @@
+dropzone:
+  version: 5.9.3
+  css:
+    theme:
+      https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css: { type: external, minified: true }
+  js:
+    https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js: { type: external, minified: true }
+
+upload_interface:
+  version: 1.x
+  js:
+    js/media-drop-upload.js: {}
+  css:
+    theme:
+      css/media-drop-upload.css: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/once
+    - core/drupalSettings
+    - media_drop/dropzone

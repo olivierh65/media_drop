@@ -1,0 +1,17 @@
+media_drop.settings_tab:
+  route_name: media_drop.admin_settings
+  base_route: media_drop.admin_settings
+  title: 'Settings'
+  weight: 0
+
+media_drop.albums_tab:
+  route_name: media_drop.album_list
+  base_route: media_drop.admin_settings
+  title: 'Albums'
+  weight: 10
+
+media_drop.mime_mapping_tab:
+  route_name: media_drop.mime_mapping
+  base_route: media_drop.admin_settings
+  title: 'MIME Mappings'
+  weight: 20

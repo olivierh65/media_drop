@@ -1,0 +1,245 @@
+<?php
+
+/**
+ * @file
+ * Installation of Media Drop.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function media_drop_schema() {
+  $schema['media_drop_albums'] = [
+    'description' => 'Stores media drop albums',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Album ID',
+      ],
+      'name' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Album name',
+      ],
+      'base_directory' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Base directory (e.g., public://albums/birthday2025)',
+      ],
+      'media_directory' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Directory in the media browser (e.g., /albums/birthday2025)',
+      ],
+      'default_media_type' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+        'description' => 'Default media type for images',
+      ],
+      'video_media_type' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+        'description' => 'Default media type for videos',
+      ],
+      'token' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => 'Unique token for the public URL',
+      ],
+      'status' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
+        'description' => 'Album status (1=active, 0=inactive)',
+      ],
+      'created' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Creation timestamp',
+      ],
+      'updated' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Last modification timestamp',
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'token' => ['token'],
+    ],
+    'indexes' => [
+      'status' => ['status'],
+    ],
+  ];
+
+  $schema['media_drop_mime_mapping'] = [
+    'description' => 'Mapping between MIME types and Drupal media types',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Mapping ID',
+      ],
+      'mime_type' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => 'MIME type (e.g., image/jpeg, video/mp4)',
+      ],
+      'media_type' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => 'Drupal media type (e.g., image, video, document)',
+      ],
+      'weight' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Weight for priority order',
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'mime_type' => ['mime_type'],
+    ],
+    'indexes' => [
+      'media_type' => ['media_type'],
+      'weight' => ['weight'],
+    ],
+  ];
+
+  $schema['media_drop_uploads'] = [
+    'description' => 'Tracking uploads by user/session',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Upload ID',
+      ],
+      'album_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Album ID',
+      ],
+      'media_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Created media entity ID',
+      ],
+      'uid' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'User ID (0 for anonymous)',
+      ],
+      'user_name' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'User name (entered if anonymous)',
+      ],
+      'session_id' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => 'Session ID for anonymous users',
+      ],
+      'subfolder' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Optional subfolder (e.g., morning, afternoon, evening)',
+      ],
+      'created' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Upload timestamp',
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'album_id' => ['album_id'],
+      'media_id' => ['media_id'],
+      'uid' => ['uid'],
+      'session_id' => ['session_id'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function media_drop_install() {
+  // Create default mappings for common MIME types
+  $default_mappings = [
+    ['mime_type' => 'image/jpeg', 'media_type' => 'image', 'weight' => 0],
+    ['mime_type' => 'image/jpg', 'media_type' => 'image', 'weight' => 0],
+    ['mime_type' => 'image/png', 'media_type' => 'image', 'weight' => 0],
+    ['mime_type' => 'image/gif', 'media_type' => 'image', 'weight' => 0],
+    ['mime_type' => 'image/webp', 'media_type' => 'image', 'weight' => 0],
+    ['mime_type' => 'video/mp4', 'media_type' => 'video', 'weight' => 0],
+    ['mime_type' => 'video/mpeg', 'media_type' => 'video', 'weight' => 0],
+    ['mime_type' => 'video/quicktime', 'media_type' => 'video', 'weight' => 0],
+    ['mime_type' => 'video/x-msvideo', 'media_type' => 'video', 'weight' => 0],
+    ['mime_type' => 'video/webm', 'media_type' => 'video', 'weight' => 0],
+  ];
+
+  $connection = \Drupal::database();
+  foreach ($default_mappings as $mapping) {
+    $connection->insert('media_drop_mime_mapping')
+      ->fields($mapping)
+      ->execute();
+  }
+
+  \Drupal::messenger()->addStatus(t('Media Drop has been installed successfully. Configure it at Admin > Configuration > Media > Media Drop.'));
+}
+
+/**
+ * Add media_directory and media type fields to albums table.
+ */
+function media_drop_update_9001() {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->fieldExists('media_drop_albums', 'media_directory')) {
+    $schema->addField('media_drop_albums', 'media_directory', [
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+      'description' => 'Directory in the media browser',
+    ]);
+  }
+
+  if (!$schema->fieldExists('media_drop_albums', 'default_media_type')) {
+    $schema->addField('media_drop_albums', 'default_media_type', [
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => FALSE,
+      'description' => 'Default media type for images',
+    ]);
+  }
+
+  if (!$schema->fieldExists('media_drop_albums', 'video_media_type')) {
+    $schema->addField('media_drop_albums', 'video_media_type', [
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => FALSE,
+      'description' => 'Default media type for videos',
+    ]);
+  }
+
+  return t('Added media type and directory fields to albums table.');
+}

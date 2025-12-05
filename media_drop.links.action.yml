@@ -1,0 +1,11 @@
+media_drop.album_add:
+  route_name: media_drop.album_add
+  title: 'Add album'
+  appears_on:
+    - media_drop.album_list
+
+media_drop.mime_mapping_add:
+  route_name: media_drop.mime_mapping
+  title: 'Manage MIME mappings'
+  appears_on:
+    - media_drop.admin_settings
