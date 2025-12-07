@@ -12,6 +12,13 @@ media_drop.albums:
   parent: media_drop.admin
   weight: 0
 
+media_drop.manage_media:
+  title: 'Manage media'
+  description: 'Move and manage uploaded media in bulk'
+  route_name: media_drop.manage_media
+  parent: media_drop.admin
+  weight: 5
+
 media_drop.mime_types:
   title: 'MIME Mappings'
   description: 'Configure mappings between MIME types and media types'

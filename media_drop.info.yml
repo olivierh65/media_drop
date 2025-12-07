@@ -7,4 +7,5 @@ dependencies:
   - drupal:file
   - drupal:user
   - drupal:media
+  - drupal:views
 configure: media_drop.admin_settings

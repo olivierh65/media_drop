@@ -1,0 +1,4 @@
+services:
+  media_drop.taxonomy_service:
+    class: Drupal\media_drop\Service\TaxonomyService
+    arguments: ['@entity_type.manager']

@@ -19,3 +19,12 @@ upload_interface:
     - core/once
     - core/drupalSettings
     - media_drop/dropzone
+
+admin_grid:
+  version: 1.x
+  css:
+    theme:
+      css/media-drop-admin-grid.css: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings

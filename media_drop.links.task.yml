@@ -10,6 +10,12 @@ media_drop.albums_tab:
   title: 'Albums'
   weight: 10
 
+media_drop.manage_media_tab:
+  route_name: media_drop.manage_media
+  base_route: media_drop.admin_settings
+  title: 'Manage media'
+  weight: 15
+
 media_drop.mime_mapping_tab:
   route_name: media_drop.mime_mapping
   base_route: media_drop.admin_settings

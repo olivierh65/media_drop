@@ -18,7 +18,7 @@ media_drop.album_add:
   path: '/admin/config/media/media-drop/albums/add'
   defaults:
     _form: '\Drupal\media_drop\Form\AlbumForm'
-    _title: 'Add album'
+    _title: 'Ajouter un album'
   requirements:
     _permission: 'administer media drop'
 
@@ -26,7 +26,7 @@ media_drop.album_edit:
   path: '/admin/config/media/media-drop/albums/{album_id}/edit'
   defaults:
     _form: '\Drupal\media_drop\Form\AlbumForm'
-    _title: 'Edit album'
+    _title: 'Modifier un album'
   requirements:
     _permission: 'administer media drop'
 
@@ -34,7 +34,7 @@ media_drop.album_delete:
   path: '/admin/config/media/media-drop/albums/{album_id}/delete'
   defaults:
     _form: '\Drupal\media_drop\Form\AlbumDeleteForm'
-    _title: 'Delete album'
+    _title: 'Supprimer un album'
   requirements:
     _permission: 'administer media drop'
 
@@ -42,7 +42,23 @@ media_drop.mime_mapping:
   path: '/admin/config/media/media-drop/mime-mapping'
   defaults:
     _form: '\Drupal\media_drop\Form\MimeMappingForm'
-    _title: 'MIME Mappings'
+    _title: 'Mapping des types MIME'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.manage_media:
+  path: '/admin/config/media/media-drop/manage'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\ManageMediaController::managePage'
+    _title: 'Gérer les médias'
+  requirements:
+    _permission: 'administer media drop'
+
+media_drop.create_manage_view:
+  path: '/admin/config/media/media-drop/create-manage-view'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\ManageMediaController::createView'
+    _title: 'Créer la vue'
   requirements:
     _permission: 'administer media drop'
 
@@ -50,7 +66,7 @@ media_drop.upload:
   path: '/media-drop/{album_token}'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::uploadPage'
-    _title: 'Drop media'
+    _title: 'Déposer des médias'
   requirements:
     _access: 'TRUE'
 
@@ -90,3 +106,15 @@ media_drop.ajax_delete_media:
   methods: [DELETE, POST]
   options:
     no_cache: TRUE
+
+media_drop.ajax_list_folders:
+  path: '/media-drop/{album_token}/list-folders'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::listFolders'
+    _title: 'List Folders'
+  requirements:
+    _permission: 'upload media to albums'
+  options:
+    parameters:
+      album_token:
+        type: string

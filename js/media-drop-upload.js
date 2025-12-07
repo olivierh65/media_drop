@@ -34,6 +34,10 @@
       if (config.can_view) {
         this.loadUserMedia(config);
       }
+      // Load existing folders if the user has permission
+      if (config.can_create_folder) {
+        this.loadUserFolders(config, userName);
+      }
     },
 
     initInterface: function($container, config, userName) {
@@ -48,8 +52,8 @@
         <div class="media-drop-user-info">
           <label for="user-name-input">${Drupal.t('Your name')} :</label>
           <input type="text" id="user-name-input" value="${userName}"
-                 placeholder="${Drupal.t('Enter your name')}" required />
-          <button id="save-user-name" class="button">${Drupal.t('Save')}</button>
+                 placeholder="${Drupal.t('Enter your name')}" required ${!config.is_anonymous ? 'readonly' : ''} />
+          <button id="save-user-name" class="button" ${!config.is_anonymous ? 'disabled' : ''}>${Drupal.t('Save')}</button>
         </div>
 
         ${config.can_create_folder ? `
@@ -258,6 +262,36 @@
               $gallery.append($item);
             });
           }
+        }
+      });
+    },
+
+    loadUserFolders: function(config, userName) {
+      if (!userName) {
+        return; // Cannot load folders without a user name.
+      }
+      let listFoldersUrl = config.list_folders_url;
+      // Pass user_name for anonymous users who have it in localStorage.
+      if (config.is_anonymous) {
+        listFoldersUrl += (listFoldersUrl.indexOf('?') === -1 ? '?' : '&') + 'user_name=' + encodeURIComponent(userName);
+      }
+
+      $.ajax({
+        url: listFoldersUrl,
+        method: 'GET',
+        success: function(response) {
+          if (response.folders && response.folders.length > 0) {
+            const $select = $('#folder-select');
+            response.folders.forEach(function(folder) {
+              $select.append($('<option>', {
+                value: folder.safe_name,
+                text: folder.name
+              }));
+            });
+          }
+        },
+        error: function(xhr) {
+          console.error('Error loading user folders.');
         }
       });
     }

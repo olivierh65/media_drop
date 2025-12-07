@@ -12,7 +12,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Component\Utility\Crypt;
 
 /**
- * Album creation/editing form.
+ * Formulaire de création/édition d'album.
  */
 class AlbumForm extends FormBase {
 
@@ -69,73 +69,73 @@ class AlbumForm extends FormBase {
         ->fetchObject();
 
       if (!$album) {
-        $this->messenger()->addError($this->t('Album not found.'));
+        $this->messenger()->addError($this->t('Album non trouvé.'));
         return $form;
       }
     }
 
     $form['name'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Album name'),
+      '#title' => $this->t('Nom de l\'album'),
       '#default_value' => $album ? $album->name : '',
       '#required' => TRUE,
       '#maxlength' => 255,
-      '#description' => $this->t('Example: Birthday 2025, Sophie & Pierre\'s Wedding'),
+      '#description' => $this->t('Exemple : Anniversaire 2025, Mariage Sophie & Pierre'),
     ];
 
-    // Get media types that accept images or videos.
+    // Récupérer les types de médias qui acceptent des images ou vidéos.
     $media_types = $this->getMediaTypesWithFileFields();
     $image_media_types = $media_types['image'];
     $video_media_types = $media_types['video'];
 
     $form['media_types'] = [
       '#type' => 'fieldset',
-      '#title' => $this->t('Media types'),
-      '#description' => $this->t('Select the media types to create for uploaded files. If not specified, the system will use the default MIME mapping.'),
+      '#title' => $this->t('Types de médias'),
+      '#description' => $this->t('Sélectionnez les types de médias à créer pour les fichiers uploadés. Si non spécifié, le système utilisera le mapping MIME par défaut.'),
       '#tree' => TRUE,
     ];
 
     $form['media_types']['default_media_type'] = [
       '#type' => 'select',
-      '#title' => $this->t('Media type for images'),
-      '#options' => ['' => $this->t('- Use default MIME mapping -')] + $image_media_types,
+      '#title' => $this->t('Type de média pour les images'),
+      '#options' => ['' => $this->t('- Utiliser le mapping MIME par défaut -')] + $image_media_types,
       '#default_value' => $album ? $album->default_media_type : '',
-      '#description' => $this->t('Drupal media type that will be created for image files (JPEG, PNG, etc.)'),
+      '#description' => $this->t('Type de média Drupal qui sera créé pour les fichiers image (JPEG, PNG, etc.)'),
     ];
 
     $form['media_types']['video_media_type'] = [
       '#type' => 'select',
-      '#title' => $this->t('Media type for videos'),
-      '#options' => ['' => $this->t('- Use default MIME mapping -')] + $video_media_types,
+      '#title' => $this->t('Type de média pour les vidéos'),
+      '#options' => ['' => $this->t('- Utiliser le mapping MIME par défaut -')] + $video_media_types,
       '#default_value' => $album ? $album->video_media_type : '',
-      '#description' => $this->t('Drupal media type that will be created for video files (MP4, MOV, etc.)'),
+      '#description' => $this->t('Type de média Drupal qui sera créé pour les fichiers vidéo (MP4, MOV, etc.)'),
     ];
 
     $form['directories'] = [
       '#type' => 'fieldset',
-      '#title' => $this->t('Directories'),
+      '#title' => $this->t('Répertoires'),
       '#tree' => TRUE,
     ];
 
     $form['directories']['base_directory'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Storage directory'),
+      '#title' => $this->t('Répertoire de stockage'),
       '#default_value' => $album ? $album->base_directory : 'public://media-drop/',
       '#required' => TRUE,
       '#maxlength' => 255,
-      '#description' => $this->t('Example: public://media-drop/birthday2025<br>Media will be saved in subdirectories per user.'),
+      '#description' => $this->t('Exemple : public://media-drop/anniversaire2025<br>Les médias seront enregistrés dans des sous-dossiers par utilisateur.'),
     ];
 
     $form['directories']['media_directory'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Directory in Media Browser'),
+      '#title' => $this->t('Répertoire dans Media Browser'),
       '#default_value' => $album ? $album->media_directory : '',
       '#maxlength' => 255,
-      '#description' => $this->t('Optional path in the Media Browser to organize media (e.g., /albums/birthday2025).<br>Leave empty to use the root.'),
+      '#description' => $this->t('Chemin optionnel dans le Media Browser pour organiser les médias (ex: /albums/anniversaire2025).<br>Laissez vide pour utiliser la racine.'),
       '#access' => !\Drupal::moduleHandler()->moduleExists('media_directories'),
     ];
 
-    // If the media_directories module is enabled, propose the taxonomy.
+    // Si le module media_directories est activé, proposer la taxonomie.
     if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
       $vocabulary_id = $this->getMediaDirectoriesVocabulary();
 
@@ -144,36 +144,43 @@ class AlbumForm extends FormBase {
 
         $form['directories']['media_directory_term'] = [
           '#type' => 'select',
-          '#title' => $this->t('Media Directories directory'),
-          '#options' => ['' => $this->t('- Root -')] + $terms,
+          '#title' => $this->t('Répertoire Media Directories'),
+          '#options' => ['' => $this->t('- Racine -')] + $terms,
           '#default_value' => $album ? $album->media_directory : '',
-          '#description' => $this->t('Select the Media Directories taxonomy term where uploaded media will be stored.<br>This taxonomy is used by the Media Directories module to organize media.'),
+          '#description' => $this->t('Sélectionnez le terme de taxonomie Media Directories où seront classés les médias uploadés.<br>Cette taxonomie est utilisée par le module Media Directories pour organiser les médias.'),
         ];
 
         $form['directories']['create_new_term'] = [
           '#type' => 'details',
-          '#title' => $this->t('Create a new directory'),
+          '#title' => $this->t('Créer un nouveau répertoire'),
           '#open' => FALSE,
           '#tree' => TRUE,
         ];
 
         $form['directories']['create_new_term']['new_term_name'] = [
           '#type' => 'textfield',
-          '#title' => $this->t('New directory name'),
-          '#description' => $this->t('If you want to create a new directory in Media Directories, enter its name here.'),
+          '#title' => $this->t('Nom du nouveau répertoire'),
+          '#description' => $this->t('Si vous souhaitez créer un nouveau répertoire dans Media Directories, saisissez son nom ici.'),
         ];
 
         $form['directories']['create_new_term']['parent_term'] = [
           '#type' => 'select',
-          '#title' => $this->t('Parent directory'),
-          '#options' => [0 => $this->t('- Root -')] + $terms,
-          '#description' => $this->t('Under which directory to create the new directory.'),
+          '#title' => $this->t('Répertoire parent'),
+          '#options' => [0 => $this->t('- Racine -')] + $terms,
+          '#description' => $this->t('Sous quel répertoire créer le nouveau répertoire.'),
+        ];
+
+        $form['directories']['auto_create_structure'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Créer automatiquement la structure'),
+          '#default_value' => TRUE,
+          '#description' => $this->t('Si coché, les dossiers utilisateurs et sous-dossiers seront automatiquement ajoutés à la taxonomie Media Directories lors des uploads.'),
         ];
       }
       else {
         $form['directories']['media_directory_warning'] = [
           '#markup' => '<div class="messages messages--warning">' .
-          $this->t('The Media Directories module is enabled but no taxonomy is configured. Please configure Media Directories first.') .
+          $this->t('Le module Media Directories est activé mais aucune taxonomie n\'est configurée. Veuillez configurer Media Directories d\'abord.') .
           '</div>',
         ];
       }
@@ -184,23 +191,23 @@ class AlbumForm extends FormBase {
 
       $form['current_url'] = [
         '#type' => 'item',
-        '#title' => $this->t('Drop URL'),
-        '#markup' => '<div class="media-drop-url"><strong>' . $url . '</strong><br><small>' . $this->t('Share this URL with participants so they can drop their media.') . '</small></div>',
+        '#title' => $this->t('URL de dépôt'),
+        '#markup' => '<div class="media-drop-url"><strong>' . $url . '</strong><br><small>' . $this->t('Partagez cette URL avec les participants pour qu\'ils puissent déposer leurs médias.') . '</small></div>',
       ];
 
       $form['regenerate_token'] = [
         '#type' => 'checkbox',
-        '#title' => $this->t('Regenerate token (will change the URL)'),
+        '#title' => $this->t('Régénérer le token (changera l\'URL)'),
         '#default_value' => FALSE,
-        '#description' => $this->t('Check this box to generate a new URL. The old URL will no longer work.'),
+        '#description' => $this->t('Cochez cette case pour générer une nouvelle URL. L\'ancienne URL ne fonctionnera plus.'),
       ];
     }
 
     $form['status'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Active album'),
+      '#title' => $this->t('Album actif'),
       '#default_value' => $album ? $album->status : 1,
-      '#description' => $this->t('If unchecked, the album will no longer be accessible for drops.'),
+      '#description' => $this->t('Si décoché, l\'album ne sera plus accessible pour les dépôts.'),
     ];
 
     $form['album_id'] = [
@@ -214,13 +221,13 @@ class AlbumForm extends FormBase {
 
     $form['actions']['submit'] = [
       '#type' => 'submit',
-      '#value' => $album ? $this->t('Update') : $this->t('Create'),
+      '#value' => $album ? $this->t('Mettre à jour') : $this->t('Créer'),
       '#button_type' => 'primary',
     ];
 
     $form['actions']['cancel'] = [
       '#type' => 'link',
-      '#title' => $this->t('Cancel'),
+      '#title' => $this->t('Annuler'),
       '#url' => Url::fromRoute('media_drop.album_list'),
       '#attributes' => ['class' => ['button']],
     ];
@@ -234,12 +241,13 @@ class AlbumForm extends FormBase {
   public function validateForm(array &$form, FormStateInterface $form_state) {
     $base_directory = $form_state->getValue(['directories', 'base_directory']);
 
-    // Check that the directory starts with a valid scheme.
-    if (!preg_match('/^(public|private):\/\//', $base_directory)) {
-      $form_state->setErrorByName('directories][base_directory', $this->t('The directory must start with public:// or private://'));
+    // Vérifier que le répertoire commence par un scheme valide.
+    // @todo traiter le cas ou $base_directory est NULL.
+    if (!empty($base_directory) && !preg_match('/^(public|private):\/\//', $base_directory)) {
+      $form_state->setErrorByName('directories][base_directory', $this->t('Le répertoire doit commencer par public:// ou private://'));
     }
 
-    // If media_directories is not enabled, validate the text field.
+    // Si media_directories n'est pas activé, valider le champ texte.
     if (!\Drupal::moduleHandler()->moduleExists('media_directories')) {
       $media_directory = $form_state->getValue(['directories', 'media_directory']);
       if (!empty($media_directory)) {
@@ -254,11 +262,11 @@ class AlbumForm extends FormBase {
       }
     }
     else {
-      // Validate that if a new term is requested, a name is provided.
+      // Valider que si un nouveau terme est demandé, un nom est fourni.
       $new_term_name = $form_state->getValue(['directories', 'create_new_term', 'new_term_name']);
       if (!empty($new_term_name) && empty(trim($new_term_name))) {
         $form_state->setErrorByName('directories][create_new_term][new_term_name',
-          $this->t('The directory name cannot be empty.'));
+          $this->t('Le nom du répertoire ne peut pas être vide.'));
       }
     }
   }
@@ -269,13 +277,13 @@ class AlbumForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $album_id = $form_state->getValue('album_id');
 
-    // Handle creation of a new term if requested (media_directories enabled)
+    // Gérer la création d'un nouveau terme si demandé (media_directories activé)
     $media_directory_value = '';
     if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
       $new_term_name = $form_state->getValue(['directories', 'create_new_term', 'new_term_name']);
 
       if (!empty($new_term_name)) {
-        // Create the new term.
+        // Créer le nouveau terme.
         $vocabulary_id = $this->getMediaDirectoriesVocabulary();
         $parent_tid = $form_state->getValue(['directories', 'create_new_term', 'parent_term']);
 
@@ -287,15 +295,15 @@ class AlbumForm extends FormBase {
         $term->save();
 
         $media_directory_value = $term->id();
-        $this->messenger()->addStatus($this->t('The directory "@name" has been created.', ['@name' => $new_term_name]));
+        $this->messenger()->addStatus($this->t('Le répertoire "@name" a été créé.', ['@name' => $new_term_name]));
       }
       else {
-        // Use the selected term.
+        // Utiliser le terme sélectionné.
         $media_directory_value = $form_state->getValue(['directories', 'media_directory_term']);
       }
     }
     else {
-      // Use the text field if media_directories is not enabled.
+      // Utiliser le champ texte si media_directories n'est pas activé.
       $media_directory_value = $form_state->getValue(['directories', 'media_directory']);
     }
 
@@ -305,12 +313,13 @@ class AlbumForm extends FormBase {
       'media_directory' => $media_directory_value,
       'default_media_type' => $form_state->getValue(['media_types', 'default_media_type']),
       'video_media_type' => $form_state->getValue(['media_types', 'video_media_type']),
+      'auto_create_structure' => \Drupal::moduleHandler()->moduleExists('media_directories') && $form_state->getValue(['directories', 'auto_create_structure']) ? 1 : 0,
       'status' => $form_state->getValue('status') ? 1 : 0,
       'updated' => \Drupal::time()->getRequestTime(),
     ];
 
     if ($album_id) {
-      // Update.
+      // Mise à jour.
       if ($form_state->getValue('regenerate_token')) {
         $values['token'] = Crypt::randomBytesBase64(32);
       }
@@ -320,10 +329,10 @@ class AlbumForm extends FormBase {
         ->condition('id', $album_id)
         ->execute();
 
-      $this->messenger()->addStatus($this->t('The album has been updated.'));
+      $this->messenger()->addStatus($this->t('L\'album a été mis à jour.'));
     }
     else {
-      // Creation.
+      // Création.
       $values['token'] = Crypt::randomBytesBase64(32);
       $values['created'] = \Drupal::time()->getRequestTime();
 
@@ -331,14 +340,14 @@ class AlbumForm extends FormBase {
         ->fields($values)
         ->execute();
 
-      $this->messenger()->addStatus($this->t('The album has been created.'));
+      $this->messenger()->addStatus($this->t('L\'album a été créé.'));
     }
 
     $form_state->setRedirect('media_drop.album_list');
   }
 
   /**
-   * Gets media types that accept image or video files.
+   * Récupère les types de médias qui acceptent des fichiers image ou vidéo.
    */
   protected function getMediaTypesWithFileFields() {
     $image_types = [];
@@ -350,7 +359,7 @@ class AlbumForm extends FormBase {
       $source = $media_type->getSource();
       $source_field = $source->getConfiguration()['source_field'];
 
-      // Get the field definition.
+      // Récupérer la définition du champ.
       $field_definitions = $this->entityTypeManager
         ->getStorage('field_config')
         ->loadByProperties([
@@ -363,24 +372,24 @@ class AlbumForm extends FormBase {
         $field_definition = reset($field_definitions);
         $field_type = $field_definition->getType();
 
-        // Check if it's a file or image field.
+        // Vérifier si c'est un champ fichier ou image.
         if ($field_type === 'image') {
           $image_types[$media_type_id] = $media_type->label() . ' (' . $this->t('Images') . ')';
         }
         elseif ($field_type === 'file') {
-          // Check allowed extensions to determine if it's for video.
+          // Vérifier les extensions autorisées pour déterminer si c'est pour vidéo.
           $settings = $field_definition->getSettings();
           $extensions = $settings['file_extensions'] ?? '';
 
-          // If it contains video extensions.
+          // Si contient des extensions vidéo.
           if (preg_match('/(mp4|mov|avi|webm|mkv|flv)/i', $extensions)) {
-            $video_types[$media_type_id] = $media_type->label() . ' (' . $this->t('Videos') . ')';
+            $video_types[$media_type_id] = $media_type->label() . ' (' . $this->t('Vidéos') . ')';
           }
-          // If it contains image extensions.
+          // Si contient des extensions image.
           if (preg_match('/(jpg|jpeg|png|gif|webp|bmp)/i', $extensions)) {
-            $image_types[$media_type_id] = $media_type->label() . ' (' . $this->t('Files') . ')';
+            $image_types[$media_type_id] = $media_type->label() . ' (' . $this->t('Fichiers') . ')';
           }
-          // If no specific extension, add it to both.
+          // Si pas d'extension spécifique, on l'ajoute aux deux.
           if (empty($extensions) || $extensions === '*') {
             $image_types[$media_type_id] = $media_type->label();
             $video_types[$media_type_id] = $media_type->label();
@@ -396,7 +405,7 @@ class AlbumForm extends FormBase {
   }
 
   /**
-   * Gets the taxonomy ID used by Media Directories.
+   * Récupère l'ID de la taxonomie utilisée par Media Directories.
    */
   protected function getMediaDirectoriesVocabulary() {
     $config = \Drupal::config('media_directories.settings');
@@ -406,7 +415,7 @@ class AlbumForm extends FormBase {
   }
 
   /**
-   * Gets term options for a vocabulary with hierarchy.
+   * Récupère les options de termes pour un vocabulaire avec hiérarchie.
    */
   protected function getTermOptions($vocabulary_id, $parent = 0, $depth = 0) {
     $options = [];
@@ -419,7 +428,7 @@ class AlbumForm extends FormBase {
       $prefix = str_repeat('--', $depth);
       $options[$term->id()] = $prefix . ' ' . $term->getName();
 
-      // Recursively get children.
+      // Récupérer récursivement les enfants.
       $children = $this->getTermOptions($vocabulary_id, $term->id(), $depth + 1);
       if (!empty($children)) {
         $options += $children;
