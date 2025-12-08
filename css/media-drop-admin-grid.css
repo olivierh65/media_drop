@@ -1,17 +1,130 @@
-.media-library-grid .views-row {
+/* Individual grid cells - make them positioned parents */
+.views-col {
+  position: relative;
+  box-sizing: border-box;
+  margin-bottom: 0.8rem;
+  /* inside border-box for padding and border */
+  box-sizing: border-box;
+  /* Border with rounded corners */
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
   background: #fff;
-  border: 1px solid #e6e6e6;
-  padding: 8px;
-  border-radius: 4px;
-  transition: box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  /* Uniform height and flexbox */
+  display: flex;
+  flex-direction: column;
+  min-height: 350px; /* Adjust as needed */
 }
-.media-library-grid .views-row:hover {
+
+/* Hover effect on border */
+.views-col:hover {
+  border-color: #0073aa;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
-.media-library-grid img {
-  width: 100%;
-  height: auto;
+
+/* Checkbox overlay on image */
+.views-field-views-bulk-operations-bulk-form {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  visibility: visible;
+  display: block !important;
+}
+
+.views-field-views-bulk-operations-bulk-form .form-item {
+  visibility: visible;
+  display: block !important;
+  margin: 0;
+  padding: 0;
+}
+
+.views-field-views-bulk-operations-bulk-form input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  visibility: visible;
+  display: block !important;
+  border-width: medium;
+  border-color: black;
+  border-radius: 0.4rem;
+}
+
+.views-field-views-bulk-operations-bulk-form label {
+  display: none;
+}
+
+/* Container to center image */
+.views-field-thumbnail__target-id {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-shrink: 0; /* Does not shrink */
+}
+
+/* Thumbnail images - centered with fixed height */
+.views-field-thumbnail__target-id img {
+  width: 90%;
+  height: 150px; /* Fixed height for uniformity */
   display: block;
   object-fit: cover;
-  border-radius: 2px;
+  border-radius: 4px;
+}
+
+/* File name */
+.views-field-name {
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+.views-field-bundle {
+  width: 90%;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+/* Media info list - area that can grow */
+.media-info-list {
+  margin: 0 auto;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  width: 90%;
+  flex-grow: 1; /* Takes available space */
+  margin-bottom: 0.5rem;
+}
+
+.media-info-list dt {
+  float: left;
+  clear: left;
+  margin: 0;
+  padding: 0 0.3rem 0 0;
+  color: #666;
+  font-weight: bold;
+}
+
+.media-info-list dd {
+  margin: 0 0 0.2rem 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Edit button always at bottom */
+.views-field-operations {
+  margin-top: auto; /* Push to bottom */
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+/* If Edit button is directly in views-col */
+.views-col > .dropbutton-wrapper,
+.views-col > .form-actions {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
 }

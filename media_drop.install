@@ -212,6 +212,34 @@ function media_drop_install() {
       ->execute();
   }
 
+    // Créer la vue de gestion si VBO est installé
+  if (\Drupal::moduleHandler()->moduleExists('views_bulk_operations')) {
+    $module_path = \Drupal::service('extension.list.module')->getPath('media_drop');
+    $yaml_file = $module_path . '/config/optional/views.view.media_drop_manage.yml';
+
+    if (file_exists($yaml_file)) {
+      $view_config = \Drupal\Component\Serialization\Yaml::decode(file_get_contents($yaml_file));
+
+      // Mettre à jour le vocabulary_id si media_directories est activé
+      if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
+        $config = \Drupal::config('media_directories.settings');
+        $vocabulary_id = $config->get('directory_taxonomy');
+
+        if ($vocabulary_id && isset($view_config['display']['default']['display_options']['filters']['directory'])) {
+          $view_config['display']['default']['display_options']['filters']['directory']['vid'] = $vocabulary_id;
+        }
+      }
+
+      $view = \Drupal::entityTypeManager()
+        ->getStorage('view')
+        ->create($view_config);
+
+      $view->save();
+
+      \Drupal::messenger()->addStatus(t('La vue de gestion des médias a été créée.'));
+    }
+  }
+
   \Drupal::messenger()->addStatus(t('Media Drop has been installed successfully. Configure it at Admin > Configuration > Media > Media Drop.'));
 }
 

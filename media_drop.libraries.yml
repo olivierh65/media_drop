@@ -28,3 +28,9 @@ admin_grid:
   dependencies:
     - core/drupal
     - core/drupalSettings
+
+media-info:
+  version: 1.x
+  css:
+    theme:
+      css/media-info.css: {}

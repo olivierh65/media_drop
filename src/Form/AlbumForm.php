@@ -340,7 +340,42 @@ class AlbumForm extends FormBase {
         ->fields($values)
         ->execute();
 
-      $this->messenger()->addStatus($this->t('L\'album a été créé.'));
+      // Récupérer l'ID de l'album qui vient d'être créé.
+      $new_album_id = $this->database->select('media_drop_albums', 'a')
+        ->fields('a', ['id'])
+        ->condition('token', $values['token'])
+        ->execute()
+        ->fetchField();
+
+      // Créer automatiquement la structure de répertoires si media_directories est activé.
+      if ($new_album_id && \Drupal::moduleHandler()->moduleExists('media_directories')) {
+        try {
+          $taxonomy_service = \Drupal::service('media_drop.taxonomy_service');
+          // Créer le terme album parent.
+          $album_term_id = $taxonomy_service->createAlbumDirectoryStructure(
+            $new_album_id,
+            $values['name']
+          );
+
+          // Mettre à jour l'album avec l'ID du terme parent.
+          if ($album_term_id) {
+            $this->database->update('media_drop_albums')
+              ->fields(['media_directory' => $album_term_id])
+              ->condition('id', $new_album_id)
+              ->execute();
+
+            $this->messenger()->addStatus($this->t('L\'album et la structure "Répertoires" ont été créés automatiquement.'));
+          }
+        }
+        catch (\Exception $e) {
+          $this->messenger()->addWarning($this->t('L\'album a été créé mais la structure de répertoires n\'a pas pu être créée : @error', [
+            '@error' => $e->getMessage(),
+          ]));
+        }
+      }
+      else {
+        $this->messenger()->addStatus($this->t('L\'album a été créé.'));
+      }
     }
 
     $form_state->setRedirect('media_drop.album_list');

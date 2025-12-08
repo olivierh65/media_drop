@@ -190,9 +190,34 @@ Si Media Directories est activé :
 
 ### Actions disponibles
 
-- **Déplacer vers un répertoire** : Change le répertoire du média (move)
-- **Supprimer** : Supprime les médias sélectionnés
-- Filtrage par nom, type, auteur, date
+La vue de gestion propose plusieurs actions en masse :
+
+1. **Déplacer vers un répertoire** (Move) : Change le répertoire du média sans copier
+2. **Éditer les médias (groupés)** : Édite plusieurs médias simultanément avec :
+   - Affichage de tous les champs configurables
+   - Regroupement des médias ayant les mêmes valeurs
+   - Résumé visuel des valeurs communes vs multiples
+   - Modification sélective champ par champ
+3. **Supprimer** : Supprime les médias sélectionnés (avec confirmation)
+
+#### Exemple d'édition groupée
+
+Lorsque vous sélectionnez 50 médias et choisissez "Éditer les médias (groupés)" :
+
+**Résumé automatique :**
+- Type de média : Image (50 médias)
+
+**Par champ :**
+- **Répertoire** : Valeurs multiples
+  - "Albums/Anniversaire/olivier.dupont/matin" : 20 médias
+  - "Albums/Anniversaire/olivier.dupont/aprem" : 30 médias
+- **Auteur** : Valeur commune : "Olivier Dupont" (50 médias)
+- **Description** : (vide) : 50 médias
+
+Vous pouvez alors choisir de modifier seulement certains champs, par exemple :
+- ☑ Modifier le répertoire → Déplacer tous vers "Albums/Anniversaire/archives"
+- ☑ Modifier la description → Ajouter "Photos événement 2025"
+- ☐ Ne pas modifier l'auteur (valeur commune conservée)
 
 ### 2. Configurer les mappings MIME
 

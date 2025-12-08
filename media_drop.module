@@ -18,3 +18,28 @@ function media_drop_theme($existing, $type, $theme, $path) {
     ],
   ];
 }
+
+/**
+ * Implements hook_views_data().
+ */
+function media_drop_views_data() {
+  $data['views']['media_drop_media_info'] = [
+    'title' => t('Media Details'),
+    'help' => t('A custom field that displays filtered media information for each media.'),
+    'field' => [
+      'id' => 'media_drop_media_info',
+    ],
+  ];
+
+  return $data;
+}
+
+/**
+ * Implements hook_preprocess_views_view().
+ */
+function media_drop_preprocess_views_view(&$variables) {
+  if ($variables['view']->id() === 'media_drop_manage') {
+    $variables['#attached']['library'][] = 'media_drop/admin_grid';
+    $variables['#attached']['library'][] = 'media_drop/media-info';
+  }
+}
