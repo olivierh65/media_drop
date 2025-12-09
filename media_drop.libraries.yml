@@ -25,9 +25,12 @@ admin_grid:
   css:
     theme:
       css/media-drop-admin-grid.css: {}
+  js:
+    js/media-drop-multi-select.js: {}
   dependencies:
     - core/drupal
     - core/drupalSettings
+    - core/once
 
 media-info:
   version: 1.x
