@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Installation de Media Drop.
+ * Installation of Media Drop.
  */
 
 /**
@@ -10,74 +10,74 @@
  */
 function media_drop_schema() {
   $schema['media_drop_albums'] = [
-    'description' => 'Stocke les albums de dépôt de médias',
+    'description' => 'Stores media drop albums',
     'fields' => [
       'id' => [
         'type' => 'serial',
         'not null' => TRUE,
-        'description' => 'ID de l\'album',
+        'description' => 'Album ID',
       ],
       'name' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
-        'description' => 'Nom de l\'album',
+        'description' => 'Album name',
       ],
       'base_directory' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
-        'description' => 'Répertoire de base (ex: public://albums/anniversaire2025)',
+        'description' => 'Base directory (e.g: public://albums/birthday2025)',
       ],
       'media_directory' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => FALSE,
-        'description' => 'Répertoire dans le media browser (ex: /albums/anniversaire2025)',
+        'description' => 'Directory in media browser (e.g: /albums/birthday2025)',
       ],
       'default_media_type' => [
         'type' => 'varchar',
         'length' => 128,
         'not null' => FALSE,
-        'description' => 'Type de média par défaut pour les images',
+        'description' => 'Default media type for images',
       ],
       'video_media_type' => [
         'type' => 'varchar',
         'length' => 128,
         'not null' => FALSE,
-        'description' => 'Type de média par défaut pour les vidéos',
+        'description' => 'Default media type for videos',
       ],
       'auto_create_structure' => [
         'type' => 'int',
         'size' => 'tiny',
         'not null' => TRUE,
         'default' => 1,
-        'description' => 'Créer automatiquement la structure de taxonomie',
+        'description' => 'Automatically create taxonomy structure',
       ],
       'token' => [
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
-        'description' => 'Token unique pour l\'URL publique',
+        'description' => 'Unique token for public URL',
       ],
       'status' => [
         'type' => 'int',
         'size' => 'tiny',
         'not null' => TRUE,
         'default' => 1,
-        'description' => 'Statut de l\'album (1=actif, 0=inactif)',
+        'description' => 'Album status (1=active, 0=inactive)',
       ],
       'created' => [
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'Timestamp de création',
+        'description' => 'Creation timestamp',
       ],
       'updated' => [
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'Timestamp de dernière modification',
+        'description' => 'Last modification timestamp',
       ],
     ],
     'primary key' => ['id'],
@@ -90,30 +90,30 @@ function media_drop_schema() {
   ];
 
   $schema['media_drop_mime_mapping'] = [
-    'description' => 'Mapping entre types MIME et types de médias Drupal',
+    'description' => 'Mapping between MIME types and Drupal media types',
     'fields' => [
       'id' => [
         'type' => 'serial',
         'not null' => TRUE,
-        'description' => 'ID du mapping',
+        'description' => 'Mapping ID',
       ],
       'mime_type' => [
         'type' => 'varchar',
         'length' => 128,
         'not null' => TRUE,
-        'description' => 'Type MIME (ex: image/jpeg, video/mp4)',
+        'description' => 'MIME type (e.g: image/jpeg, video/mp4)',
       ],
       'media_type' => [
         'type' => 'varchar',
         'length' => 128,
         'not null' => TRUE,
-        'description' => 'Type de média Drupal (ex: image, video, document)',
+        'description' => 'Drupal media type (e.g: image, video, document)',
       ],
       'weight' => [
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'Poids pour l\'ordre de priorité',
+        'description' => 'Weight for priority order',
       ],
     ],
     'primary key' => ['id'],
@@ -127,52 +127,52 @@ function media_drop_schema() {
   ];
 
   $schema['media_drop_uploads'] = [
-    'description' => 'Suivi des uploads par utilisateur/session',
+    'description' => 'Tracking of uploads by user/session',
     'fields' => [
       'id' => [
         'type' => 'serial',
         'not null' => TRUE,
-        'description' => 'ID de l\'upload',
+        'description' => 'Upload ID',
       ],
       'album_id' => [
         'type' => 'int',
         'not null' => TRUE,
-        'description' => 'ID de l\'album',
+        'description' => 'Album ID',
       ],
       'media_id' => [
         'type' => 'int',
         'not null' => TRUE,
-        'description' => 'ID de l\'entité média créée',
+        'description' => 'Created media entity ID',
       ],
       'uid' => [
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'ID de l\'utilisateur (0 pour anonyme)',
+        'description' => 'User ID (0 for anonymous)',
       ],
       'user_name' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
-        'description' => 'Nom de l\'utilisateur (saisi si anonyme)',
+        'description' => 'Username (entered if anonymous)',
       ],
       'session_id' => [
         'type' => 'varchar',
         'length' => 128,
         'not null' => TRUE,
-        'description' => 'ID de session pour les utilisateurs anonymes',
+        'description' => 'Session ID for anonymous users',
       ],
       'subfolder' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => FALSE,
-        'description' => 'Sous-dossier optionnel (ex: matin, aprem, soiree)',
+        'description' => 'Optional subfolder (e.g: morning, afternoon, evening)',
       ],
       'created' => [
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'Timestamp de l\'upload',
+        'description' => 'Upload timestamp',
       ],
     ],
     'primary key' => ['id'],
@@ -191,7 +191,7 @@ function media_drop_schema() {
  * Implements hook_install().
  */
 function media_drop_install() {
-  // Créer des mappings par défaut pour les types MIME courants
+  // Create default mappings for common MIME types
   $default_mappings = [
     ['mime_type' => 'image/jpeg', 'media_type' => 'image', 'weight' => 0],
     ['mime_type' => 'image/jpg', 'media_type' => 'image', 'weight' => 0],
@@ -212,7 +212,7 @@ function media_drop_install() {
       ->execute();
   }
 
-    // Créer la vue de gestion si VBO est installé
+  // Create management view if VBO is installed
   if (\Drupal::moduleHandler()->moduleExists('views_bulk_operations')) {
     $module_path = \Drupal::service('extension.list.module')->getPath('media_drop');
     $yaml_file = $module_path . '/config/optional/views.view.media_drop_manage.yml';
@@ -220,7 +220,7 @@ function media_drop_install() {
     if (file_exists($yaml_file)) {
       $view_config = \Drupal\Component\Serialization\Yaml::decode(file_get_contents($yaml_file));
 
-      // Mettre à jour le vocabulary_id si media_directories est activé
+      // Update vocabulary_id if media_directories is enabled
       if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
         $config = \Drupal::config('media_directories.settings');
         $vocabulary_id = $config->get('directory_taxonomy');
@@ -236,7 +236,7 @@ function media_drop_install() {
 
       $view->save();
 
-      \Drupal::messenger()->addStatus(t('La vue de gestion des médias a été créée.'));
+      \Drupal::messenger()->addStatus(t('The media management view has been created.'));
     }
   }
 
@@ -254,7 +254,7 @@ function media_drop_update_9001() {
       'type' => 'varchar',
       'length' => 255,
       'not null' => FALSE,
-      'description' => 'Répertoire dans le media browser',
+      'description' => 'Directory in media browser',
     ]);
   }
 
@@ -263,7 +263,7 @@ function media_drop_update_9001() {
       'type' => 'varchar',
       'length' => 128,
       'not null' => FALSE,
-      'description' => 'Type de média par défaut pour les images',
+      'description' => 'Default media type for images',
     ]);
   }
 
@@ -272,7 +272,7 @@ function media_drop_update_9001() {
       'type' => 'varchar',
       'length' => 128,
       'not null' => FALSE,
-      'description' => 'Type de média par défaut pour les vidéos',
+      'description' => 'Default media type for videos',
     ]);
   }
 
@@ -280,23 +280,23 @@ function media_drop_update_9001() {
 }
 
 /**
- * Créer la vue de gestion des médias si VBO est installé.
+ * Create media management view if VBO is installed.
  */
 function media_drop_update_9002() {
-  // Vérifier si VBO est installé
+  // Check if VBO is installed
   if (!\Drupal::moduleHandler()->moduleExists('views_bulk_operations')) {
-    \Drupal::messenger()->addWarning(t('Installez Views Bulk Operations pour utiliser la gestion en masse des médias : composer require drupal/views_bulk_operations'));
-    return t('Views Bulk Operations n\'est pas installé.');
+    \Drupal::messenger()->addWarning(t('Install Views Bulk Operations to use bulk media management: composer require drupal/views_bulk_operations'));
+    return t('Views Bulk Operations is not installed.');
   }
 
-  // La vue sera créée automatiquement depuis config/optional
+  // View will be created automatically from config/optional
   \Drupal::service('router.builder')->rebuild();
 
-  return t('Vue de gestion des médias activée. Videz le cache avec drush cr.');
+  return t('Media management view enabled. Clear cache with drush cr.');
 }
 
 /**
- * Ajoute le champ auto_create_structure à la table albums.
+ * Add auto_create_structure field to albums table.
  */
 function media_drop_update_9003() {
   $schema = \Drupal::database()->schema();
@@ -307,9 +307,9 @@ function media_drop_update_9003() {
       'size' => 'tiny',
       'not null' => TRUE,
       'default' => 1,
-      'description' => 'Créer automatiquement la structure de taxonomie (1=oui, 0=non)',
+      'description' => 'Automatically create taxonomy structure (1=yes, 0=no)',
     ]);
   }
 
-  return t('Champ auto_create_structure ajouté à la table albums.');
+  return t('Field auto_create_structure added to albums table.');
 }

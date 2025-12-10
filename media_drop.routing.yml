@@ -18,7 +18,7 @@ media_drop.album_add:
   path: '/admin/config/media/media-drop/albums/add'
   defaults:
     _form: '\Drupal\media_drop\Form\AlbumForm'
-    _title: 'Ajouter un album'
+    _title: 'Add an album'
   requirements:
     _permission: 'administer media drop'
 
@@ -26,7 +26,7 @@ media_drop.album_edit:
   path: '/admin/config/media/media-drop/albums/{album_id}/edit'
   defaults:
     _form: '\Drupal\media_drop\Form\AlbumForm'
-    _title: 'Modifier un album'
+    _title: 'Edit an album'
   requirements:
     _permission: 'administer media drop'
 
@@ -34,7 +34,7 @@ media_drop.album_delete:
   path: '/admin/config/media/media-drop/albums/{album_id}/delete'
   defaults:
     _form: '\Drupal\media_drop\Form\AlbumDeleteForm'
-    _title: 'Supprimer un album'
+    _title: 'Delete an album'
   requirements:
     _permission: 'administer media drop'
 
@@ -42,7 +42,7 @@ media_drop.mime_mapping:
   path: '/admin/config/media/media-drop/mime-mapping'
   defaults:
     _form: '\Drupal\media_drop\Form\MimeMappingForm'
-    _title: 'Mapping des types MIME'
+    _title: 'MIME type mapping'
   requirements:
     _permission: 'administer media drop'
 
@@ -50,7 +50,7 @@ media_drop.manage_media:
   path: '/admin/config/media/media-drop/manage'
   defaults:
     _controller: '\Drupal\media_drop\Controller\ManageMediaController::managePage'
-    _title: 'Gérer les médias'
+    _title: 'Manage media'
   requirements:
     _permission: 'administer media drop'
 
@@ -58,7 +58,7 @@ media_drop.create_manage_view:
   path: '/admin/config/media/media-drop/create-manage-view'
   defaults:
     _controller: '\Drupal\media_drop\Controller\ManageMediaController::createView'
-    _title: 'Créer la vue'
+    _title: 'Create view'
   requirements:
     _permission: 'administer media drop'
 
@@ -66,7 +66,7 @@ media_drop.upload:
   path: '/media-drop/{album_token}'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::uploadPage'
-    _title: 'Déposer des médias'
+    _title: 'Drop media'
   requirements:
     _access: 'TRUE'
 
