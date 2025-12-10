@@ -27,7 +27,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "POT-Creation-Date: 2025-12-10 21:39+0100\n"
-"PO-Revision-Date: 2025-12-10 21:53+0100\n"
+"PO-Revision-Date: 2025-12-10 23:14+0100\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -109,7 +109,7 @@ msgstr "Champ auto_create_structure ajouté à la table des albums."
 
 #: modules/custom/media_drop/media_drop.install:378
 msgid "Notification field renamed from groups to roles."
-msgstr "Champ de notification renommé de groups en roles"
+msgstr "Champ de notification renommé de groups en roles."
 
 #: modules/custom/media_drop/media_drop.info.yml:0
 #: modules/custom/media_drop/media_drop.links.menu.yml:0
@@ -512,7 +512,7 @@ msgid "Drop your media: @album"
 msgstr "Déposez vos médias : @album"
 
 #: modules/custom/media_drop/src/Controller/UploadController.php:217
-msgid "Your name"
+msgid "Your identifiant"
 msgstr "Votre identifiant"
 
 #: modules/custom/media_drop/src/Controller/UploadController.php:225
@@ -580,10 +580,8 @@ msgid "Error saving the file."
 msgstr "Erreur lors de l'enregistrement du fichier."
 
 #: modules/custom/media_drop/src/Controller/UploadController.php:647
-#, fuzzy
-#| msgid "Folder name"
 msgid "Folder name required."
-msgstr "Nom du dossier"
+msgstr "Nom du dossier requis."
 
 #: modules/custom/media_drop/src/Controller/UploadController.php:755
 #, fuzzy
@@ -593,7 +591,7 @@ msgstr "Média non trouvé ou vous n'avez pas la permission."
 
 #: modules/custom/media_drop/src/Controller/UploadController.php:881
 msgid "User name required."
-msgstr "Nom requis"
+msgstr "Nom requis."
 
 #: modules/custom/media_drop/src/Form/AdminSettingsForm.php:35
 msgid ""
@@ -886,7 +884,7 @@ msgstr "Role destinataire"
 msgid ""
 "Select which roles should receive email notifications about uploads to this "
 "album."
-msgstr "Sélectionnez quel role devra recevoir les emails de notification"
+msgstr "Sélectionnez quel role devra recevoir les emails de notification."
 
 #: modules/custom/media_drop/src/Form/AlbumForm.php:295
 msgid "Additional notification email"
@@ -1094,12 +1092,3 @@ msgstr "Oui"
 #: modules/custom/media_drop/src/Plugin/views/field/MediaInfoField.php:203
 msgid "No"
 msgstr "Non"
-
-#~ msgid "Your identifiant"
-#~ msgstr "Votre identifiant"
-
-#~ msgid "Name saved"
-#~ msgstr "Nom enregistré"
-
-#~ msgid "Album non trouvé."
-#~ msgstr "Album non trouvé."
