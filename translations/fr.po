@@ -26,8 +26,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2025-12-10 11:22+0100\n"
-"PO-Revision-Date: 2025-12-10 11:22+0100\n"
+"POT-Creation-Date: 2025-12-10 21:39+0100\n"
+"PO-Revision-Date: 2025-12-10 21:53+0100\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -35,6 +35,7 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Poedit 3.8\n"
 
 #: modules/custom/media_drop/media_drop.module:27
 msgid "Media Details"
@@ -42,23 +43,51 @@ msgstr "Détails du média"
 
 #: modules/custom/media_drop/media_drop.module:28
 msgid "A custom field that displays filtered media information for each media."
-msgstr "Un champ personnalisé qui affiche les informations de média filtrées pour chaque média."
+msgstr ""
+"Un champ personnalisé qui affiche les informations de média filtrées pour "
+"chaque média."
+
+#: modules/custom/media_drop/media_drop.module:53
+#, fuzzy
+#| msgid "Upload media to albums"
+msgid "New media uploaded to @album"
+msgstr "Télécharger des médias dans les albums"
+
+#: modules/custom/media_drop/media_drop.module:57
+msgid "A new media has been uploaded to the album \"@album\"."
+msgstr "Un nouveau média a été téléchargé dans l'album \"@album\"."
+
+#: modules/custom/media_drop/media_drop.module:63
+msgid "@file_count file@plurial uploaded by @user"
+msgstr "@file_count fichier@plurial téléchargé@plurial par @user"
+
+#: modules/custom/media_drop/media_drop.module:70
+msgid "Manage your media at: @url"
+msgstr "Gérer les médias à @url"
 
 #: modules/custom/media_drop/media_drop.install:239
 msgid "The media management view has been created."
 msgstr "La vue de gestion des médias a été créée."
 
 #: modules/custom/media_drop/media_drop.install:243
-msgid "Media Drop has been installed successfully. Configure it at Admin > Configuration > Media > Media Drop."
-msgstr "Media Drop a été installé avec succès. Configurez-le à Admin > Configuration > Médias > Media Drop."
+msgid ""
+"Media Drop has been installed successfully. Configure it at Admin > "
+"Configuration > Media > Media Drop."
+msgstr ""
+"Media Drop a été installé avec succès. Configurez-le à Admin > Configuration "
+"> Médias > Media Drop."
 
 #: modules/custom/media_drop/media_drop.install:279
 msgid "Added media type and directory fields to albums table."
 msgstr "Champs de type média et répertoire ajoutés à la table des albums."
 
 #: modules/custom/media_drop/media_drop.install:288
-msgid "Install Views Bulk Operations to use bulk media management: composer require drupal/views_bulk_operations"
-msgstr "Installez Views Bulk Operations pour utiliser la gestion des médias en masse : composer require drupal/views_bulk_operations"
+msgid ""
+"Install Views Bulk Operations to use bulk media management: composer require "
+"drupal/views_bulk_operations"
+msgstr ""
+"Installez Views Bulk Operations pour utiliser la gestion des médias en "
+"masse : composer require drupal/views_bulk_operations"
 
 #: modules/custom/media_drop/media_drop.install:289
 msgid "Views Bulk Operations is not installed."
@@ -72,39 +101,65 @@ msgstr "Vue de gestion des médias activée. Videz le cache avec drush cr."
 msgid "Field auto_create_structure added to albums table."
 msgstr "Champ auto_create_structure ajouté à la table des albums."
 
-#: modules/custom/media_drop/media_drop.info.yml:0 modules/custom/media_drop/media_drop.links.menu.yml:0 modules/custom/media_drop/src/Plugin/Action/BulkEditMediaAction.php:13 modules/custom/media_drop/src/Plugin/Action/MoveMediaToDirectory.php:12
+#: modules/custom/media_drop/media_drop.install:350
+#, fuzzy
+#| msgid "Field auto_create_structure added to albums table."
+msgid "Notification fields added to albums table."
+msgstr "Champ auto_create_structure ajouté à la table des albums."
+
+#: modules/custom/media_drop/media_drop.install:378
+msgid "Notification field renamed from groups to roles."
+msgstr "Champ de notification renommé de groups en roles"
+
+#: modules/custom/media_drop/media_drop.info.yml:0
+#: modules/custom/media_drop/media_drop.links.menu.yml:0
+#: modules/custom/media_drop/src/Plugin/Action/BulkEditMediaAction.php:13
+#: modules/custom/media_drop/src/Plugin/Action/MoveMediaToDirectory.php:12
 msgid "Media Drop"
 msgstr "Media Drop"
 
 #: modules/custom/media_drop/media_drop.info.yml:0
-msgid "Allows users to bulk upload photos and videos into organized albums with media type management"
-msgstr "Permet aux utilisateurs de télécharger en masse des photos et des vidéos dans des albums organisés avec gestion des types de médias"
+msgid ""
+"Allows users to bulk upload photos and videos into organized albums with "
+"media type management"
+msgstr ""
+"Permet aux utilisateurs de télécharger en masse des photos et des vidéos "
+"dans des albums organisés avec gestion des types de médias"
 
 #: modules/custom/media_drop/media_drop.info.yml:0
 msgid "Media"
 msgstr "Médias"
 
-#: modules/custom/media_drop/media_drop.links.action.yml:0 modules/custom/media_drop/src/Controller/AlbumController.php:129
+#: modules/custom/media_drop/media_drop.links.action.yml:0
+#: modules/custom/media_drop/src/Controller/AlbumController.php:129
 msgid "Add album"
 msgstr "Ajouter un album"
 
-#: modules/custom/media_drop/media_drop.links.action.yml:0 modules/custom/media_drop/src/Form/AdminSettingsForm.php:68
+#: modules/custom/media_drop/media_drop.links.action.yml:0
+#: modules/custom/media_drop/src/Form/AdminSettingsForm.php:68
 msgid "Manage MIME mappings"
 msgstr "Gérer les mappages MIME"
 
-#: modules/custom/media_drop/media_drop.links.menu.yml:0 modules/custom/media_drop/media_drop.links.task.yml:0 modules/custom/media_drop/media_drop.routing.yml:0 modules/custom/media_drop/src/Form/AdminSettingsForm.php:45
+#: modules/custom/media_drop/media_drop.links.menu.yml:0
+#: modules/custom/media_drop/media_drop.links.task.yml:0
+#: modules/custom/media_drop/media_drop.routing.yml:0
+#: modules/custom/media_drop/src/Form/AdminSettingsForm.php:45
 msgid "Albums"
 msgstr "Albums"
 
-#: modules/custom/media_drop/media_drop.links.menu.yml:0 modules/custom/media_drop/media_drop.links.task.yml:0 modules/custom/media_drop/media_drop.routing.yml:0
+#: modules/custom/media_drop/media_drop.links.menu.yml:0
+#: modules/custom/media_drop/media_drop.links.task.yml:0
+#: modules/custom/media_drop/media_drop.routing.yml:0
 msgid "Manage media"
 msgstr "Gérer les médias"
 
-#: modules/custom/media_drop/media_drop.links.menu.yml:0 modules/custom/media_drop/media_drop.links.task.yml:0
+#: modules/custom/media_drop/media_drop.links.menu.yml:0
+#: modules/custom/media_drop/media_drop.links.task.yml:0
 msgid "MIME Mappings"
 msgstr "Mappages MIME"
 
-#: modules/custom/media_drop/media_drop.links.menu.yml:0 modules/custom/media_drop/media_drop.links.task.yml:0
+#: modules/custom/media_drop/media_drop.links.menu.yml:0
+#: modules/custom/media_drop/media_drop.links.task.yml:0
 msgid "Settings"
 msgstr "Paramètres"
 
@@ -200,61 +255,9 @@ msgstr "Déposer des médias"
 msgid "List Folders"
 msgstr "Lister les dossiers"
 
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Drop your media: @album"
-msgstr "Déposez vos médias : @album"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Your name"
-msgstr "Votre nom"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Enter your name"
-msgstr "Entrez votre nom"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0 modules/custom/media_drop/src/Form/MimeMappingForm.php:163
-msgid "Save"
-msgstr "Enregistrer"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Organize in a sub-folder (optional)"
-msgstr "Organiser dans un sous-dossier (optionnel)"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "-- Main folder --"
-msgstr "-- Dossier principal --"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Create folder"
-msgstr "Créer un dossier"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Folder name"
-msgstr "Nom du dossier"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0 modules/custom/media_drop/src/Form/AlbumForm.php:224
-msgid "Create"
-msgstr "Créer"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0;0 modules/custom/media_drop/src/Form/AlbumForm.php:230
-msgid "Cancel"
-msgstr "Annuler"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Drag and drop your photos and videos here or click to select"
-msgstr "Glissez-déposez vos photos et vidéos ici ou cliquez pour sélectionner"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "You do not have permission to drop media."
-msgstr "Vous n'avez pas la permission de déposer des médias."
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Your dropped media"
-msgstr "Vos médias déposés"
-
-#: modules/custom/media_drop/js/media-drop-upload.js:0
-msgid "Name saved"
-msgstr "Nom enregistré"
+#: modules/custom/media_drop/media_drop.routing.yml:0
+msgid "Trigger Notification"
+msgstr ""
 
 #: modules/custom/media_drop/js/media-drop-upload.js:0
 msgid "Drag and drop your files here"
@@ -275,6 +278,12 @@ msgstr "Type de fichier invalide"
 #: modules/custom/media_drop/js/media-drop-upload.js:0
 msgid "Remove"
 msgstr "Supprimer"
+
+#: modules/custom/media_drop/js/media-drop-upload.js:0
+#: modules/custom/media_drop/src/Controller/UploadController.php:305
+#: modules/custom/media_drop/src/Form/AlbumForm.php:329
+msgid "Cancel"
+msgstr "Annuler"
 
 #: modules/custom/media_drop/js/media-drop-upload.js:0
 msgid "Please enter your name before dropping files."
@@ -308,7 +317,9 @@ msgstr "Erreur lors de la création du dossier"
 msgid "No media dropped yet."
 msgstr "Aucun média déposé pour le moment."
 
-#: modules/custom/media_drop/js/media-drop-upload.js:0 modules/custom/media_drop/src/Controller/AlbumController.php:97 modules/custom/media_drop/src/Form/MimeMappingForm.php:85
+#: modules/custom/media_drop/js/media-drop-upload.js:0
+#: modules/custom/media_drop/src/Controller/AlbumController.php:97
+#: modules/custom/media_drop/src/Form/MimeMappingForm.php:85
 msgid "Delete"
 msgstr "Supprimer"
 
@@ -344,11 +355,13 @@ msgstr "Nom"
 msgid "Directory"
 msgstr "Répertoire"
 
-#: modules/custom/media_drop/src/Controller/AlbumController.php:111 modules/custom/media_drop/src/Form/AlbumForm.php:93
+#: modules/custom/media_drop/src/Controller/AlbumController.php:111
+#: modules/custom/media_drop/src/Form/AlbumForm.php:151
 msgid "Media types"
 msgstr "Types de médias"
 
-#: modules/custom/media_drop/src/Controller/AlbumController.php:112 modules/custom/media_drop/src/Form/AlbumForm.php:194
+#: modules/custom/media_drop/src/Controller/AlbumController.php:112
+#: modules/custom/media_drop/src/Form/AlbumForm.php:252
 msgid "Drop URL"
 msgstr "URL de dépôt"
 
@@ -376,7 +389,8 @@ msgstr "Aucun album créé pour le moment. @link"
 msgid "Create an album"
 msgstr "Créer un album"
 
-#: modules/custom/media_drop/src/Controller/AlbumController.php:150 modules/custom/media_drop/src/Form/AlbumForm.php:412
+#: modules/custom/media_drop/src/Controller/AlbumController.php:150
+#: modules/custom/media_drop/src/Form/AlbumForm.php:513
 msgid "Images"
 msgstr "Images"
 
@@ -384,7 +398,8 @@ msgstr "Images"
 msgid "Images: default mapping"
 msgstr "Images : mappage par défaut"
 
-#: modules/custom/media_drop/src/Controller/AlbumController.php:160 modules/custom/media_drop/src/Form/AlbumForm.php:421
+#: modules/custom/media_drop/src/Controller/AlbumController.php:160
+#: modules/custom/media_drop/src/Form/AlbumForm.php:522
 msgid "Videos"
 msgstr "Vidéos"
 
@@ -393,12 +408,20 @@ msgid "Videos: default mapping"
 msgstr "Vidéos : mappage par défaut"
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:92
-msgid "The <a href=\"@url\" target=\"_blank\">Views Bulk Operations</a> module must be installed to use this functionality."
-msgstr "Le module <a href=\"@url\" target=\"_blank\">Views Bulk Operations</a> doit être installé pour utiliser cette fonctionnalité."
+msgid ""
+"The <a href=\"@url\" target=\"_blank\">Views Bulk Operations</a> module must "
+"be installed to use this functionality."
+msgstr ""
+"Le module <a href=\"@url\" target=\"_blank\">Views Bulk Operations</a> doit "
+"être installé pour utiliser cette fonctionnalité."
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:95
-msgid "Installation: <code>composer require drupal/views_bulk_operations && drush en views_bulk_operations -y</code>"
-msgstr "Installation : <code>composer require drupal/views_bulk_operations && drush en views_bulk_operations -y</code>"
+msgid ""
+"Installation: <code>composer require drupal/views_bulk_operations && drush "
+"en views_bulk_operations -y</code>"
+msgstr ""
+"Installation : <code>composer require drupal/views_bulk_operations && drush "
+"en views_bulk_operations -y</code>"
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:107
 msgid "The media management view does not exist yet."
@@ -414,23 +437,31 @@ msgstr "Créer la vue maintenant"
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:127
 msgid "Click this button to automatically create the media management view."
-msgstr "Cliquez sur ce bouton pour créer automatiquement la vue de gestion des médias."
+msgstr ""
+"Cliquez sur ce bouton pour créer automatiquement la vue de gestion des "
+"médias."
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:132
 msgid "Or import manually"
 msgstr "Ou importer manuellement"
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:138
-msgid "Go to <a href=\"/admin/config/development/configuration/single/import\">Configuration > Single import</a>"
-msgstr "Allez à <a href=\"/admin/config/development/configuration/single/import\">Configuration > Importer simple</a>"
+msgid ""
+"Go to <a href=\"/admin/config/development/configuration/single/"
+"import\">Configuration > Single import</a>"
+msgstr ""
+"Allez à <a href=\"/admin/config/development/configuration/single/"
+"import\">Configuration > Importer simple</a>"
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:139
 msgid "Configuration type: <strong>View</strong>"
 msgstr "Type de configuration : <strong>Vue</strong>"
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:140
-msgid "Paste the content of the file <code>views.view.media_drop_manage.yml</code>"
-msgstr "Collez le contenu du fichier <code>views.view.media_drop_manage.yml</code>"
+msgid ""
+"Paste the content of the file <code>views.view.media_drop_manage.yml</code>"
+msgstr ""
+"Collez le contenu du fichier <code>views.view.media_drop_manage.yml</code>"
 
 #: modules/custom/media_drop/src/Controller/ManageMediaController.php:141
 msgid "Click \"Import\""
@@ -472,41 +503,105 @@ msgstr "Fichier de configuration de la vue introuvable : @file"
 msgid "Unable to parse the view configuration file."
 msgstr "Impossible de parser le fichier de configuration de la vue."
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:99
+#: modules/custom/media_drop/src/Controller/UploadController.php:161
 msgid "Album not found or inactive."
 msgstr "Album non trouvé ou inactif."
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:138;319 modules/custom/media_drop/src/Form/AlbumDeleteForm.php:64 modules/custom/media_drop/src/Form/AlbumForm.php:72
+#: modules/custom/media_drop/src/Controller/UploadController.php:203
+msgid "Drop your media: @album"
+msgstr "Déposez vos médias : @album"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:217
+msgid "Your name"
+msgstr "Votre identifiant"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:225
+msgid "Enter your name"
+msgstr "Entrez votre nom"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:237
+#: modules/custom/media_drop/src/Form/MimeMappingForm.php:163
+msgid "Save"
+msgstr "Enregistrer"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:255
+msgid "Organize in a sub-folder (optional)"
+msgstr "Organiser dans un sous-dossier (optionnel)"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:265
+msgid "-- Main folder --"
+msgstr "-- Dossier principal --"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:271
+msgid "Create folder"
+msgstr "Créer un dossier"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:290
+msgid "Folder name"
+msgstr "Nom du dossier"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:296
+#: modules/custom/media_drop/src/Form/AlbumForm.php:323
+msgid "Create"
+msgstr "Créer"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:332
+msgid "Drag and drop your photos and videos here or click to select"
+msgstr "Glissez-déposez vos photos et vidéos ici ou cliquez pour sélectionner"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:341
+msgid "You do not have permission to drop media."
+msgstr "Vous n'avez pas la permission de déposer des médias."
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:356
+msgid "Your dropped media"
+msgstr "Vos médias déposés"
+
+#: modules/custom/media_drop/src/Controller/UploadController.php:403;598;640;693;734;874
+#: modules/custom/media_drop/src/Form/AlbumDeleteForm.php:64
+#: modules/custom/media_drop/src/Form/AlbumForm.php:130
 msgid "Album not found."
 msgstr "Album non trouvé."
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:143
+#: modules/custom/media_drop/src/Controller/UploadController.php:408
 msgid "Permission denied."
 msgstr "Permission refusée."
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:152
+#: modules/custom/media_drop/src/Controller/UploadController.php:417;651
 msgid "Please enter your name."
 msgstr "Veuillez entrer votre nom."
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:209
+#: modules/custom/media_drop/src/Controller/UploadController.php:476
 msgid "Unsupported file type: @mime"
 msgstr "Type de fichier non supporté : @mime"
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:227
+#: modules/custom/media_drop/src/Controller/UploadController.php:494
 msgid "Error saving the file."
 msgstr "Erreur lors de l'enregistrement du fichier."
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:419;460
-msgid "Album non trouvé."
-msgstr "Album non trouvé."
+#: modules/custom/media_drop/src/Controller/UploadController.php:647
+#, fuzzy
+#| msgid "Folder name"
+msgid "Folder name required."
+msgstr "Nom du dossier"
 
-#: modules/custom/media_drop/src/Controller/UploadController.php:481
-msgid "Média non trouvé ou vous n'avez pas la permission."
+#: modules/custom/media_drop/src/Controller/UploadController.php:755
+#, fuzzy
+#| msgid "Média non trouvé ou vous n'avez pas la permission."
+msgid "Media not found or you don't have permission."
 msgstr "Média non trouvé ou vous n'avez pas la permission."
 
+#: modules/custom/media_drop/src/Controller/UploadController.php:881
+msgid "User name required."
+msgstr "Nom requis"
+
 #: modules/custom/media_drop/src/Form/AdminSettingsForm.php:35
-msgid "Configure the general settings for Media Drop. To manage albums and MIME type mappings, use the tabs above."
-msgstr "Configurez les paramètres généraux de Media Drop. Pour gérer les albums et les mappages de types MIME, utilisez les onglets ci-dessus."
+msgid ""
+"Configure the general settings for Media Drop. To manage albums and MIME "
+"type mappings, use the tabs above."
+msgstr ""
+"Configurez les paramètres généraux de Media Drop. Pour gérer les albums et "
+"les mappages de types MIME, utilisez les onglets ci-dessus."
 
 #: modules/custom/media_drop/src/Form/AdminSettingsForm.php:51
 msgid "Manage albums"
@@ -522,7 +617,8 @@ msgstr "Types MIME"
 
 #: modules/custom/media_drop/src/Form/AdminSettingsForm.php:73
 msgid "Configure the media types created based on the MIME types of the files."
-msgstr "Configurez les types de médias créés en fonction des types MIME des fichiers."
+msgstr ""
+"Configurez les types de médias créés en fonction des types MIME des fichiers."
 
 #: modules/custom/media_drop/src/Form/AdminSettingsForm.php:79
 msgid "Upload"
@@ -589,184 +685,278 @@ msgid "1 year"
 msgstr "1 an"
 
 #: modules/custom/media_drop/src/Form/AdminSettingsForm.php:131
-msgid "After this period, album URLs will be invalid and will need to be regenerated."
-msgstr "Après cette période, les URL de l'album seront invalides et devront être régénérées."
+msgid ""
+"After this period, album URLs will be invalid and will need to be "
+"regenerated."
+msgstr ""
+"Après cette période, les URL de l'album seront invalides et devront être "
+"régénérées."
 
 #: modules/custom/media_drop/src/Form/AdminSettingsForm.php:143
 msgid "The maximum size must be a positive number."
 msgstr "La taille maximale doit être un nombre positif."
 
 #: modules/custom/media_drop/src/Form/AlbumDeleteForm.php:78
-msgid "Warning: this album contains @count media item(s). The media themselves will not be deleted, but the links with this album will be lost."
-msgstr "Attention : cet album contient @count élément(s) média. Les médias eux-mêmes ne seront pas supprimés, mais les liens avec cet album seront perdus."
+msgid ""
+"Warning: this album contains @count media item(s). The media themselves will "
+"not be deleted, but the links with this album will be lost."
+msgstr ""
+"Attention : cet album contient @count élément(s) média. Les médias eux-mêmes "
+"ne seront pas supprimés, mais les liens avec cet album seront perdus."
 
 #: modules/custom/media_drop/src/Form/AlbumDeleteForm.php:92
 msgid "Are you sure you want to delete the album %name?"
 msgstr "Êtes-vous sûr de vouloir supprimer l'album %name ?"
 
 #: modules/custom/media_drop/src/Form/AlbumDeleteForm.php:101
-msgid "This action cannot be undone. The base directory and files will not be deleted."
-msgstr "Cette action ne peut pas être annulée. Le répertoire de base et les fichiers ne seront pas supprimés."
+msgid ""
+"This action cannot be undone. The base directory and files will not be "
+"deleted."
+msgstr ""
+"Cette action ne peut pas être annulée. Le répertoire de base et les fichiers "
+"ne seront pas supprimés."
 
 #: modules/custom/media_drop/src/Form/AlbumDeleteForm.php:125
 msgid "The album %name has been deleted."
 msgstr "L'album %name a été supprimé."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:79
+#: modules/custom/media_drop/src/Form/AlbumForm.php:137
 msgid "Album name"
 msgstr "Nom de l'album"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:83
+#: modules/custom/media_drop/src/Form/AlbumForm.php:141
 msgid "Example: Birthday 2025, Sophie & Pierre's wedding"
 msgstr "Exemple : Anniversaire 2025, mariage de Sophie et Pierre"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:94
-msgid "Select the media types to create for uploaded files. If not specified, the system will use the default MIME mapping."
-msgstr "Sélectionnez les types de médias à créer pour les fichiers téléchargés. S'il n'est pas spécifié, le système utilisera le mappage MIME par défaut."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:152
+msgid ""
+"Select the media types to create for uploaded files. If not specified, the "
+"system will use the default MIME mapping."
+msgstr ""
+"Sélectionnez les types de médias à créer pour les fichiers téléchargés. S'il "
+"n'est pas spécifié, le système utilisera le mappage MIME par défaut."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:100
+#: modules/custom/media_drop/src/Form/AlbumForm.php:158
 msgid "Media type for images"
 msgstr "Type de média pour les images"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:101;109
+#: modules/custom/media_drop/src/Form/AlbumForm.php:159;167
 msgid "- Use default MIME mapping -"
 msgstr "- Utiliser le mappage MIME par défaut -"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:103
-msgid "Drupal media type that will be created for image files (JPEG, PNG, etc.)"
-msgstr "Type de média Drupal qui sera créé pour les fichiers image (JPEG, PNG, etc.)"
+#: modules/custom/media_drop/src/Form/AlbumForm.php:161
+msgid ""
+"Drupal media type that will be created for image files (JPEG, PNG, etc.)"
+msgstr ""
+"Type de média Drupal qui sera créé pour les fichiers image (JPEG, PNG, etc.)"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:108
+#: modules/custom/media_drop/src/Form/AlbumForm.php:166
 msgid "Media type for videos"
 msgstr "Type de média pour les vidéos"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:111
+#: modules/custom/media_drop/src/Form/AlbumForm.php:169
 msgid "Drupal media type that will be created for video files (MP4, MOV, etc.)"
-msgstr "Type de média Drupal qui sera créé pour les fichiers vidéo (MP4, MOV, etc.)"
+msgstr ""
+"Type de média Drupal qui sera créé pour les fichiers vidéo (MP4, MOV, etc.)"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:116
+#: modules/custom/media_drop/src/Form/AlbumForm.php:174
 msgid "Directories"
 msgstr "Répertoires"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:122
+#: modules/custom/media_drop/src/Form/AlbumForm.php:180
 msgid "Storage directory"
 msgstr "Répertoire de stockage"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:126
-msgid "Example: public://media-drop/birthday2025<br>Media will be saved in subfolders by user."
-msgstr "Exemple : public://media-drop/birthday2025<br>Les médias seront enregistrés dans des sous-dossiers par utilisateur."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:184
+msgid ""
+"Example: public://media-drop/birthday2025<br>Media will be saved in "
+"subfolders by user."
+msgstr ""
+"Exemple : public://media-drop/birthday2025<br>Les médias seront enregistrés "
+"dans des sous-dossiers par utilisateur."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:131
+#: modules/custom/media_drop/src/Form/AlbumForm.php:189
 msgid "Directory in Media Browser"
 msgstr "Répertoire dans le navigateur de médias"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:134
-msgid "Optional path in the Media Browser to organize media (e.g: /albums/birthday2025).<br>Leave empty to use root."
-msgstr "Chemin optionnel dans le navigateur de médias pour organiser les médias (par ex. : /albums/birthday2025).<br>Laissez vide pour utiliser la racine."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:192
+msgid ""
+"Optional path in the Media Browser to organize media (e.g: /albums/"
+"birthday2025).<br>Leave empty to use root."
+msgstr ""
+"Chemin optionnel dans le navigateur de médias pour organiser les médias (par "
+"ex. : /albums/birthday2025).<br>Laissez vide pour utiliser la racine."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:147
+#: modules/custom/media_drop/src/Form/AlbumForm.php:205
 msgid "Media Directories"
 msgstr "Répertoires de médias"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:148;169
+#: modules/custom/media_drop/src/Form/AlbumForm.php:206;227
 msgid "- Root -"
 msgstr "- Racine -"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:150
-msgid "Select the Media Directories taxonomy term where uploaded media will be classified.<br>This taxonomy is used by the Media Directories module to organize media."
-msgstr "Sélectionnez le terme de taxonomie Media Directories où les médias téléchargés seront classifiés.<br>Cette taxonomie est utilisée par le module Media Directories pour organiser les médias."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:208
+msgid ""
+"Select the Media Directories taxonomy term where uploaded media will be "
+"classified.<br>This taxonomy is used by the Media Directories module to "
+"organize media."
+msgstr ""
+"Sélectionnez le terme de taxonomie Media Directories où les médias "
+"téléchargés seront classifiés.<br>Cette taxonomie est utilisée par le module "
+"Media Directories pour organiser les médias."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:155
+#: modules/custom/media_drop/src/Form/AlbumForm.php:213
 msgid "Create a new directory"
 msgstr "Créer un nouveau répertoire"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:162
+#: modules/custom/media_drop/src/Form/AlbumForm.php:220
 msgid "Name of new directory"
 msgstr "Nom du nouveau répertoire"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:163
-msgid "If you want to create a new directory in Media Directories, enter its name here."
-msgstr "Si vous souhaitez créer un nouveau répertoire dans Media Directories, entrez son nom ici."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:221
+msgid ""
+"If you want to create a new directory in Media Directories, enter its name "
+"here."
+msgstr ""
+"Si vous souhaitez créer un nouveau répertoire dans Media Directories, entrez "
+"son nom ici."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:168
+#: modules/custom/media_drop/src/Form/AlbumForm.php:226
 msgid "Parent directory"
 msgstr "Répertoire parent"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:170
+#: modules/custom/media_drop/src/Form/AlbumForm.php:228
 msgid "Under which directory to create the new directory."
 msgstr "Sous quel répertoire créer le nouveau répertoire."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:175
+#: modules/custom/media_drop/src/Form/AlbumForm.php:233
 msgid "Automatically create structure"
 msgstr "Créer automatiquement la structure"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:177
-msgid "If checked, user folders and subfolders will be automatically added to the Media Directories taxonomy during uploads."
-msgstr "Si coché, les dossiers d'utilisateurs et les sous-dossiers seront automatiquement ajoutés à la taxonomie Media Directories lors des téléchargements."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:235
+msgid ""
+"If checked, user folders and subfolders will be automatically added to the "
+"Media Directories taxonomy during uploads."
+msgstr ""
+"Si coché, les dossiers d'utilisateurs et les sous-dossiers seront "
+"automatiquement ajoutés à la taxonomie Media Directories lors des "
+"téléchargements."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:183
-msgid "The Media Directories module is enabled but no taxonomy is configured. Please configure Media Directories first."
-msgstr "Le module Media Directories est activé mais aucune taxonomie n'est configurée. Veuillez d'abord configurer Media Directories."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:241
+msgid ""
+"The Media Directories module is enabled but no taxonomy is configured. "
+"Please configure Media Directories first."
+msgstr ""
+"Le module Media Directories est activé mais aucune taxonomie n'est "
+"configurée. Veuillez d'abord configurer Media Directories."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:195
+#: modules/custom/media_drop/src/Form/AlbumForm.php:253
 msgid "Share this URL with participants so they can drop their media."
-msgstr "Partagez cette URL avec les participants pour qu'ils puissent déposer leurs médias."
+msgstr ""
+"Partagez cette URL avec les participants pour qu'ils puissent déposer leurs "
+"médias."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:200
+#: modules/custom/media_drop/src/Form/AlbumForm.php:258
 msgid "Regenerate token (will change the URL)"
 msgstr "Régénérer le jeton (changera l'URL)"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:202
+#: modules/custom/media_drop/src/Form/AlbumForm.php:260
 msgid "Check this box to generate a new URL. The old URL will no longer work."
-msgstr "Cochez cette case pour générer une nouvelle URL. L'ancienne URL ne fonctionnera plus."
+msgstr ""
+"Cochez cette case pour générer une nouvelle URL. L'ancienne URL ne "
+"fonctionnera plus."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:208
+#: modules/custom/media_drop/src/Form/AlbumForm.php:267
+msgid "Notifications"
+msgstr "Notifications"
+
+#: modules/custom/media_drop/src/Form/AlbumForm.php:273
+msgid "Enable email notifications"
+msgstr "Activer les notifications par mail"
+
+#: modules/custom/media_drop/src/Form/AlbumForm.php:275
+msgid "Send email notifications when media is uploaded to this album."
+msgstr "Envoi d'une notification quand un media est envoyé vers cet album."
+
+#: modules/custom/media_drop/src/Form/AlbumForm.php:282
+msgid "Notify roles"
+msgstr "Role destinataire"
+
+#: modules/custom/media_drop/src/Form/AlbumForm.php:285
+msgid ""
+"Select which roles should receive email notifications about uploads to this "
+"album."
+msgstr "Sélectionnez quel role devra recevoir les emails de notification"
+
+#: modules/custom/media_drop/src/Form/AlbumForm.php:295
+msgid "Additional notification email"
+msgstr "Email additionnel de notification"
+
+#: modules/custom/media_drop/src/Form/AlbumForm.php:297
+msgid ""
+"Optional: Send notifications to this email address in addition to users with "
+"selected roles."
+msgstr ""
+"Optionnel: Envoi d'une notification a cette adresse en plus des utilisateurs "
+"du rôle sélectionné."
+
+#: modules/custom/media_drop/src/Form/AlbumForm.php:307
 msgid "Album active"
 msgstr "Album actif"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:210
+#: modules/custom/media_drop/src/Form/AlbumForm.php:309
 msgid "If unchecked, the album will no longer be accessible for drops."
 msgstr "Si décoché, l'album ne sera plus accessible pour les dépôts."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:224
+#: modules/custom/media_drop/src/Form/AlbumForm.php:323
 msgid "Update"
 msgstr "Mettre à jour"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:247
+#: modules/custom/media_drop/src/Form/AlbumForm.php:346
 msgid "The directory must start with public:// or private://"
 msgstr "Le répertoire doit commencer par public:// ou private://"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:269
+#: modules/custom/media_drop/src/Form/AlbumForm.php:368
 msgid "The directory name cannot be empty."
 msgstr "Le nom du répertoire ne peut pas être vide."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:298
+#: modules/custom/media_drop/src/Form/AlbumForm.php:397
 msgid "The directory \"@name\" has been created."
 msgstr "Le répertoire \"@name\" a été créé."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:332
+#: modules/custom/media_drop/src/Form/AlbumForm.php:434
 msgid "The album has been updated."
 msgstr "L'album a été mis à jour."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:367
-msgid "The album and \"Directories\" structure have been created automatically."
+#: modules/custom/media_drop/src/Form/AlbumForm.php:468
+msgid ""
+"The album and \"Directories\" structure have been created automatically."
 msgstr "L'album et la structure \"Répertoires\" ont été créés automatiquement."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:371
-msgid "The album has been created but the directory structure could not be created: @error"
-msgstr "L'album a été créé mais la structure du répertoire n'a pas pu être créée : @error"
+#: modules/custom/media_drop/src/Form/AlbumForm.php:472
+msgid ""
+"The album has been created but the directory structure could not be created: "
+"@error"
+msgstr ""
+"L'album a été créé mais la structure du répertoire n'a pas pu être créée : "
+"@error"
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:377
+#: modules/custom/media_drop/src/Form/AlbumForm.php:478
 msgid "The album has been created."
 msgstr "L'album a été créé."
 
-#: modules/custom/media_drop/src/Form/AlbumForm.php:425
+#: modules/custom/media_drop/src/Form/AlbumForm.php:526
 msgid "Files"
 msgstr "Fichiers"
 
 #: modules/custom/media_drop/src/Form/MimeMappingForm.php:76
-msgid "Configure which Drupal media types will be created based on the MIME types of uploaded files. Custom media types are also available."
-msgstr "Configurez les types de médias Drupal qui seront créés en fonction des types MIME des fichiers téléchargés. Les types de médias personnalisés sont également disponibles."
+msgid ""
+"Configure which Drupal media types will be created based on the MIME types "
+"of uploaded files. Custom media types are also available."
+msgstr ""
+"Configurez les types de médias Drupal qui seront créés en fonction des types "
+"MIME des fichiers téléchargés. Les types de médias personnalisés sont "
+"également disponibles."
 
 #: modules/custom/media_drop/src/Form/MimeMappingForm.php:82;145
 msgid "MIME Type"
@@ -813,8 +1003,12 @@ msgid "The mappings have been saved."
 msgstr "Les mappages ont été enregistrés."
 
 #: modules/custom/media_drop/src/Plugin/Action/BulkEditMediaAction.php:114
-msgid "The fields below show values common to selected media. Media with the same values are grouped together."
-msgstr "Les champs ci-dessous affichent les valeurs communes aux médias sélectionnés. Les médias avec les mêmes valeurs sont regroupés."
+msgid ""
+"The fields below show values common to selected media. Media with the same "
+"values are grouped together."
+msgstr ""
+"Les champs ci-dessous affichent les valeurs communes aux médias "
+"sélectionnés. Les médias avec les mêmes valeurs sont regroupés."
 
 #: modules/custom/media_drop/src/Plugin/Action/BulkEditMediaAction.php:120
 msgid "Selection summary (@count media)"
@@ -862,7 +1056,8 @@ msgstr "Modifier les médias (regroupés)"
 
 #: modules/custom/media_drop/src/Plugin/Action/MoveMediaToDirectory.php:68
 msgid "The Media Directories module must be enabled to use this action."
-msgstr "Le module Media Directories doit être activé pour utiliser cette action."
+msgstr ""
+"Le module Media Directories doit être activé pour utiliser cette action."
 
 #: modules/custom/media_drop/src/Plugin/Action/MoveMediaToDirectory.php:81
 msgid "No taxonomy configured in Media Directories."
@@ -877,8 +1072,12 @@ msgid "Destination directory"
 msgstr "Répertoire de destination"
 
 #: modules/custom/media_drop/src/Plugin/Action/MoveMediaToDirectory.php:104
-msgid "The selected media will be <strong>moved</strong> (not copied) to this directory."
-msgstr "Les médias sélectionnés seront <strong>déplacés</strong> (non copiés) vers ce répertoire."
+msgid ""
+"The selected media will be <strong>moved</strong> (not copied) to this "
+"directory."
+msgstr ""
+"Les médias sélectionnés seront <strong>déplacés</strong> (non copiés) vers "
+"ce répertoire."
 
 #: modules/custom/media_drop/src/Plugin/Action/MoveMediaToDirectory.php:145
 msgid "The media @name does not have a \"directory\" field."
@@ -895,3 +1094,12 @@ msgstr "Oui"
 #: modules/custom/media_drop/src/Plugin/views/field/MediaInfoField.php:203
 msgid "No"
 msgstr "Non"
+
+#~ msgid "Your identifiant"
+#~ msgstr "Votre identifiant"
+
+#~ msgid "Name saved"
+#~ msgstr "Nom enregistré"
+
+#~ msgid "Album non trouvé."
+#~ msgstr "Album non trouvé."

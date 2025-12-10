@@ -118,3 +118,14 @@ media_drop.ajax_list_folders:
     parameters:
       album_token:
         type: string
+
+media_drop.ajax_trigger_notification:
+  path: '/media-drop/{album_token}/trigger-notification'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::triggerNotification'
+    _title: 'Trigger Notification'
+  requirements:
+    _permission: 'upload media to albums'
+  options:
+    no_cache: TRUE
+  methods: [POST]

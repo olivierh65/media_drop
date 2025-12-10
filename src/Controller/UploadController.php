@@ -13,7 +13,12 @@ use Drupal\media\Entity\Media;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Core\Access\AccessResult;
+use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\media_drop\Service\TaxonomyService;
+use Drupal\media_drop\Service\NotificationService;
 
 /**
  * Controller for media upload interface.
@@ -63,15 +68,67 @@ class UploadController extends ControllerBase {
   protected $fileUrlGenerator;
 
   /**
+   * The request stack.
+   *
+   * @var \Symfony\Component\HttpFoundation\RequestStack
+   */
+  protected $requestStack;
+
+  /**
+   * The time service.
+   *
+   * @var \Drupal\Component\Datetime\TimeInterface
+   */
+  protected $time;
+
+  /**
+   * The module handler.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
+   * The taxonomy service.
+   *
+   * @var \Drupal\media_drop\Service\TaxonomyService
+   */
+  protected $taxonomyService;
+
+  /**
+   * The notification service.
+   *
+   * @var \Drupal\media_drop\Service\NotificationService
+   */
+  protected $notificationService;
+
+  /**
    * Constructs a new UploadController.
    */
-  public function __construct(Connection $database, EntityTypeManagerInterface $entity_type_manager, FileSystemInterface $file_system, FileRepositoryInterface $fileRepository, $mimeTypeGuesser, $fileUrlGenerator) {
+  public function __construct(
+    Connection $database,
+    EntityTypeManagerInterface $entity_type_manager,
+    FileSystemInterface $file_system,
+    FileRepositoryInterface $fileRepository,
+    $mimeTypeGuesser,
+    $fileUrlGenerator,
+    RequestStack $request_stack,
+    TimeInterface $time,
+    ModuleHandlerInterface $module_handler,
+    TaxonomyService $taxonomy_service,
+    NotificationService $notification_service,
+  ) {
     $this->database = $database;
     $this->entityTypeManager = $entity_type_manager;
     $this->fileSystem = $file_system;
     $this->fileRepository = $fileRepository;
     $this->mimeTypeGuesser = $mimeTypeGuesser;
     $this->fileUrlGenerator = $fileUrlGenerator;
+    $this->requestStack = $request_stack;
+    $this->time = $time;
+    $this->moduleHandler = $module_handler;
+    $this->taxonomyService = $taxonomy_service;
+    $this->notificationService = $notification_service;
   }
 
   /**
@@ -79,12 +136,17 @@ class UploadController extends ControllerBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-    $container->get('database'),
-    $container->get('entity_type.manager'),
-    $container->get('file_system'),
-    $container->get('file.repository'),
-    $container->get('file.mime_type.guesser'),
-    $container->get('file_url_generator')
+      $container->get('database'),
+      $container->get('entity_type.manager'),
+      $container->get('file_system'),
+      $container->get('file.repository'),
+      $container->get('file.mime_type.guesser'),
+      $container->get('file_url_generator'),
+      $container->get('request_stack'),
+      $container->get('datetime.time'),
+      $container->get('module_handler'),
+      $container->get('media_drop.taxonomy_service'),
+      $container->get('media_drop.notification_service')
     );
   }
 
@@ -100,29 +162,232 @@ class UploadController extends ControllerBase {
       ];
     }
 
-    // Load required libraries.
+    $is_anonymous = $this->currentUser()->isAnonymous();
+    $can_upload = $this->currentUser()->hasPermission('upload media to albums');
+    $can_view = $this->currentUser()->hasPermission('view own uploaded media');
+    $can_create_folder = $this->currentUser()->hasPermission('create album folders');
+    $can_delete = $this->currentUser()->hasPermission('delete own uploaded media');
+
+    $allowed_extensions = $this->config('media_drop.settings')->get('allowed_extensions');
+    $accepted_files = '';
+    if ($allowed_extensions) {
+      $extensions = array_map('trim', explode(' ', trim($allowed_extensions)));
+      $extensions = array_filter($extensions, function ($ext) {
+        return !empty($ext);
+      });
+      $accepted_files = implode(',', array_map(function ($ext) {
+        return '.' . ltrim($ext, '.');
+      }, $extensions));
+    }
+    else {
+      $accepted_files = 'image/*,video/*';
+    }
+
+    // Build the page structure.
+    $build = [
+      '#type' => 'container',
+      '#attributes' => [
+        'id' => 'media-drop-upload-container',
+        'class' => ['media-drop-interface'],
+      ],
+    ];
+
+    // Header.
+    $build['header'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => ['class' => ['media-drop-header']],
+      'title' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h1',
+        '#value' => $this->t('Drop your media: @album', ['@album' => $album->name]),
+      ],
+    ];
+
+    // User info section.
+    $build['user_info'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['media-drop-user-info']],
+    ];
+
+    $build['user_info']['label'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'label',
+      '#attributes' => ['for' => 'user-name-input'],
+      '#value' => $this->t('Your identifiant') . ' :',
+    ];
+
+    $build['user_info']['user_name'] = [
+      '#type' => 'textfield',
+      '#default_value' => $is_anonymous ? '' : $this->currentUser()->getAccountName(),
+      '#attributes' => [
+        'id' => 'user-name-input',
+        'placeholder' => $this->t('Enter your name'),
+        'required' => 'required',
+      ],
+    ];
+
+    if (!$is_anonymous) {
+      $build['user_info']['user_name']['#attributes']['readonly'] = 'readonly';
+    }
+
+    if ($is_anonymous) {
+      $build['user_info']['save_button'] = [
+        '#type' => 'button',
+        '#value' => $this->t('Save'),
+        '#attributes' => [
+          'id' => 'save-user-name',
+          'class' => ['button'],
+        ],
+      ];
+    }
+
+    // Folder section.
+    if ($can_create_folder) {
+      $build['folder_section'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['media-drop-folder-section']],
+      ];
+
+      $build['folder_section']['label'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'label',
+        '#value' => $this->t('Organize in a sub-folder (optional)') . ' :',
+      ];
+
+      $build['folder_section']['folder_controls'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['folder-controls']],
+      ];
+
+      $build['folder_section']['folder_controls']['folder_select'] = [
+        '#type' => 'select',
+        '#options' => ['' => $this->t('-- Main folder --')],
+        '#attributes' => ['id' => 'folder-select'],
+      ];
+
+      $build['folder_section']['folder_controls']['create_folder'] = [
+        '#type' => 'button',
+        '#value' => $this->t('Create folder'),
+        '#attributes' => [
+          'id' => 'create-folder',
+          'class' => ['button'],
+        ],
+      ];
+
+      $build['folder_section']['new_folder_form'] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'id' => 'new-folder-form',
+          'style' => 'display: none;',
+        ],
+      ];
+
+      $build['folder_section']['new_folder_form']['new_folder_name'] = [
+        '#type' => 'textfield',
+        '#attributes' => [
+          'id' => 'new-folder-name',
+          'placeholder' => $this->t('Folder name'),
+        ],
+      ];
+
+      $build['folder_section']['new_folder_form']['confirm_folder'] = [
+        '#type' => 'button',
+        '#value' => $this->t('Create'),
+        '#attributes' => [
+          'id' => 'confirm-folder',
+          'class' => ['button', 'button--primary'],
+        ],
+      ];
+
+      $build['folder_section']['new_folder_form']['cancel_folder'] = [
+        '#type' => 'button',
+        '#value' => $this->t('Cancel'),
+        '#attributes' => [
+          'id' => 'cancel-folder',
+          'class' => ['button'],
+        ],
+      ];
+    }
+
+    // Dropzone section.
+    if ($can_upload) {
+      $build['dropzone'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['media-drop-dropzone']],
+      ];
+
+      $build['dropzone']['form'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'form',
+        '#attributes' => [
+          'action' => Url::fromRoute('media_drop.ajax_upload', ['album_token' => $album_token])->toString(),
+          'class' => ['dropzone'],
+          'id' => 'media-dropzone',
+        ],
+        'message' => [
+          '#type' => 'html_tag',
+          '#tag' => 'div',
+          '#attributes' => ['class' => ['dz-message']],
+          '#value' => $this->t('Drag and drop your photos and videos here or click to select'),
+        ],
+      ];
+    }
+    else {
+      $build['no_permission'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['media-drop-no-permission']],
+        'message' => [
+          '#markup' => '<p>' . $this->t('You do not have permission to drop media.') . '</p>',
+        ],
+      ];
+    }
+
+    // Gallery section.
+    if ($can_view) {
+      $build['gallery'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['media-drop-gallery']],
+      ];
+
+      $build['gallery']['title'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Your dropped media'),
+      ];
+
+      $build['gallery']['media_grid'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => [
+          'id' => 'media-gallery',
+          'class' => ['media-grid'],
+        ],
+      ];
+    }
+
+    // Attach libraries.
     $build['#attached']['library'][] = 'media_drop/dropzone';
     $build['#attached']['library'][] = 'media_drop/upload_interface';
-    // Pass data to JavaScript.
+
+    // Pass settings to JavaScript.
     $build['#attached']['drupalSettings']['media_drop'] = [
       'album_token' => $album_token,
       'album_name' => $album->name,
+      'max_file_size' => $this->config('media_drop.settings')->get('max_filesize') ?: 50,
+      'accepted_files' => $accepted_files,
       'upload_url' => Url::fromRoute('media_drop.ajax_upload', ['album_token' => $album_token])->toString(),
       'create_folder_url' => Url::fromRoute('media_drop.ajax_create_folder', ['album_token' => $album_token])->toString(),
       'list_folders_url' => Url::fromRoute('media_drop.ajax_list_folders', ['album_token' => $album_token])->toString(),
       'list_media_url' => Url::fromRoute('media_drop.ajax_list_media', ['album_token' => $album_token])->toString(),
       'delete_media_url' => Url::fromRoute('media_drop.ajax_delete_media', ['album_token' => $album_token, 'media_id' => '__MEDIA_ID__'])->toString(),
-      'can_upload' => $this->currentUser()->hasPermission('upload media to albums'),
-      'can_delete' => $this->currentUser()->hasPermission('delete own uploaded media'),
-      'can_create_folder' => $this->currentUser()->hasPermission('create album folders'),
-      'can_view' => $this->currentUser()->hasPermission('view own uploaded media'),
-      'is_anonymous' => $this->currentUser()->isAnonymous(),
-      'user_name' => $this->currentUser()->isAnonymous() ? '' : $this->currentUser()->getAccountName(),
-    ];
-
-    $build['content'] = [
-      '#theme' => 'media_drop_upload_page',
-      '#album_name' => $album->name,
+      'trigger_notification_url' => Url::fromRoute('media_drop.ajax_trigger_notification', ['album_token' => $album_token])->toString(),
+      'can_upload' => $can_upload,
+      'can_delete' => $can_delete,
+      'can_create_folder' => $can_create_folder,
+      'can_view' => $can_view,
+      'is_anonymous' => $is_anonymous,
+      'user_name' => $is_anonymous ? '' : $this->currentUser()->getAccountName(),
     ];
 
     return $build;
@@ -170,6 +435,8 @@ class UploadController extends ControllerBase {
     $this->fileSystem->prepareDirectory($destination, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
 
     $results = [];
+    // Accumulate files for single notification email.
+    $uploaded_files_for_notification = [];
 
     if (!is_array($files)) {
       $files = [$files];
@@ -215,9 +482,9 @@ class UploadController extends ControllerBase {
         // using writeData() which preserves the name and MIME type.
         $data = file_get_contents($file->getRealPath());
         $file_entity = $this->fileRepository->writeData(
-        $data,
-        $destination_uri,
-        FileSystemInterface::EXISTS_RENAME
+          $data,
+          $destination_uri,
+          FileSystemInterface::EXISTS_RENAME
         );
 
         if (!$file_entity) {
@@ -238,19 +505,18 @@ class UploadController extends ControllerBase {
 
         $directory_tid = NULL;
         // Handle Media Directories taxonomy assignment.
-        if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
+        if ($this->moduleHandler->moduleExists('media_directories')) {
           // If a subfolder was chosen and the album is set to auto-create the structure.
           if ($album->auto_create_structure) {
-            $taxonomy_service = \Drupal::service('media_drop.taxonomy_service');
             $safe_subfolder = !empty($subfolder) ? preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($subfolder)) : NULL;
 
             // This service call should ensure terms exist for user/subfolder and return the final term ID.
             // NOTE: This assumes `ensureDirectoryTerm` returns the term ID.
             // If it does not, that service needs to be modified to do so.
-            $directory_tid = $taxonomy_service->ensureDirectoryTerm(
-            $album->id,
-            $safe_user_name,
-            $safe_subfolder
+            $directory_tid = $this->taxonomyService->ensureDirectoryTerm(
+              $album->id,
+              $safe_user_name,
+              $safe_subfolder
             );
           }
 
@@ -286,9 +552,16 @@ class UploadController extends ControllerBase {
             'user_name' => $user_name,
             'session_id' => $session_id,
             'subfolder' => $subfolder,
-            'created' => \Drupal::time()->getRequestTime(),
+            'created' => $this->time->getRequestTime(),
           ])
           ->execute();
+
+        // Accumulate for notification email.
+        $uploaded_files_for_notification[] = [
+          'filename' => $filename,
+          'user_name' => $user_name,
+          'media' => $media,
+        ];
 
         $results[] = [
           'success' => TRUE,
@@ -306,6 +579,12 @@ class UploadController extends ControllerBase {
         ];
       }
     }
+
+    // Send a single notification email with all uploaded files.
+    // send one mail per upload batch.
+    /* if (!empty($uploaded_files_for_notification)) {
+    $this->notificationService->notifyUploadBatch($album, $uploaded_files_for_notification);
+    } */
 
     return new JsonResponse(['results' => $results]);
   }
@@ -332,13 +611,13 @@ class UploadController extends ControllerBase {
     }
 
     $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
-    $user_directory = $this->fileSystem->realpath($album->base_directory . ' / ' . $safe_user_name);
+    $user_directory = $this->fileSystem->realpath($album->base_directory . '/' . $safe_user_name);
 
     $folders = [];
     if (is_dir($user_directory)) {
       $files = scandir($user_directory);
       foreach ($files as $file) {
-        if ($file !== ' . ' && $file !== ' . . ' && is_dir($user_directory . ' / ' . $file)) {
+        if ($file !== '.' && $file !== '..' && is_dir($user_directory . '/' . $file)) {
           // For simplicity, we use the sanitized name as both value and text.
           $folders[] = [
             'safe_name' => $file,
@@ -352,42 +631,41 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Créer un sous-dossier.
+   * Create a subfolder.
    */
   public function createFolder($album_token, Request $request) {
     $album = $this->loadAlbumByToken($album_token);
 
     if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album non trouvé . ')], 404);
+      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
     }
 
     $folder_name = $request->request->get('folder_name');
     $user_name = $request->request->get('user_name');
 
     if (empty($folder_name)) {
-      return new JsonResponse(['error' => $this->t('Nom de dossier requis . ')], 400);
+      return new JsonResponse(['error' => $this->t('Folder name required.')], 400);
     }
 
     if ($this->currentUser()->isAnonymous() && empty($user_name)) {
-      return new JsonResponse(['error' => $this->t('Veuillez indiquer votre nom . ')], 400);
+      return new JsonResponse(['error' => $this->t('Please enter your name.')], 400);
     }
 
     if (!$user_name) {
       $user_name = $this->currentUser()->getAccountName();
     }
 
-    $safe_user_name = preg_replace(' / [^ a - z0 - 9_\ - \ .] / ', '_', strtolower($user_name));
-    $safe_folder_name = preg_replace(' / [^ a - z0 - 9_\ - \ .] / ', '_', strtolower($folder_name));
+    $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
+    $safe_folder_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($folder_name));
 
-    $destination = $album->base_directory . ' / ' . $safe_user_name . ' / ' . $safe_folder_name;
+    $destination = $album->base_directory . '/' . $safe_user_name . '/' . $safe_folder_name;
 
     try {
       $this->fileSystem->prepareDirectory($destination, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
 
-      // Créer le terme de taxonomie si Media Directories est activé.
-      if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
-        $taxonomy_service = \Drupal::service('media_drop . taxonomy_service');
-        $taxonomy_service->ensureDirectoryTerm(
+      // Create taxonomy term if Media Directories is enabled.
+      if ($this->moduleHandler->moduleExists('media_directories')) {
+        $this->taxonomyService->ensureDirectoryTerm(
           $album->id,
           $safe_user_name,
           $safe_folder_name
@@ -406,16 +684,13 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Lister les médias de l'utilisateur .
-   * /
-   *
-   * /**
+   * List media uploaded by the user.
    */
   public function listMedia($album_token, Request $request) {
     $album = $this->loadAlbumByToken($album_token);
 
     if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album non trouvé.')], 404);
+      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
     }
 
     $session_id = $this->getSessionId();
@@ -450,18 +725,18 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Supprimer un média.
+   * Delete a media.
    */
   public function deleteMedia($album_token, $media_id) {
     $album = $this->loadAlbumByToken($album_token);
 
     if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album non trouvé.')], 404);
+      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
     }
 
     $session_id = $this->getSessionId();
 
-    // Vérifier que l'utilisateur est propriétaire du média.
+    // Check that the user owns the media.
     $query = $this->database->select('media_drop_uploads', 'u')
       ->fields('u')
       ->condition('album_id', $album->id)
@@ -477,7 +752,7 @@ class UploadController extends ControllerBase {
     $upload = $query->execute()->fetchObject();
 
     if (!$upload) {
-      return new JsonResponse(['error' => $this->t('Média non trouvé ou vous n\'avez pas la permission.')], 403);
+      return new JsonResponse(['error' => $this->t('Media not found or you don\'t have permission.')], 403);
     }
 
     try {
@@ -498,24 +773,24 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Contrôle d'accès pour l'upload.
+   * Access control for upload.
    */
   public function checkUploadAccess($album_token, AccountInterface $account) {
     $album = $this->loadAlbumByToken($album_token);
 
     if (!$album) {
-      return AccessResult::forbidden('Album non trouvé.');
+      return AccessResult::forbidden('Album not found.');
     }
 
     if (!$account->hasPermission('upload media to albums')) {
-      return AccessResult::forbidden('Permission refusée.');
+      return AccessResult::forbidden('Permission denied.');
     }
 
     return AccessResult::allowed();
   }
 
   /**
-   * Charger un album par token.
+   * Load an album by token.
    */
   protected function loadAlbumByToken($token) {
     return $this->database->select('media_drop_albums', 'a')
@@ -527,22 +802,22 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Obtenir le type de média pour un type MIME.
+   * Get media type for a MIME type.
    */
   protected function getMediaTypeForMime($mime_type, $album = NULL) {
-    // Si l'album a défini des types de médias spécifiques, les utiliser en priorité.
+    // If the album has defined specific media types, use them as priority.
     if ($album) {
-      // Pour les images.
+      // For images.
       if (strpos($mime_type, 'image/') === 0 && !empty($album->default_media_type)) {
         return $album->default_media_type;
       }
-      // Pour les vidéos.
+      // For videos.
       if (strpos($mime_type, 'video/') === 0 && !empty($album->video_media_type)) {
         return $album->video_media_type;
       }
     }
 
-    // Sinon, utiliser le mapping MIME par défaut.
+    // Otherwise, use the default MIME mapping.
     $result = $this->database->select('media_drop_mime_mapping', 'm')
       ->fields('m', ['media_type'])
       ->condition('mime_type', $mime_type)
@@ -553,7 +828,7 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Obtenir le nom du champ source pour un type de média.
+   * Get the source field name for a media type.
    */
   protected function getMediaSourceField($media_type_id) {
     $media_type = $this->entityTypeManager->getStorage('media_type')->load($media_type_id);
@@ -564,11 +839,12 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Obtenir l'ID de session.
+   * Get session ID.
    */
   protected function getSessionId() {
     if ($this->currentUser()->isAnonymous()) {
-      $session = \Drupal::request()->getSession();
+      $request = $this->requestStack->getCurrentRequest();
+      $session = $request->getSession();
       if (!$session->has('media_drop_session_id')) {
         $session->set('media_drop_session_id', uniqid('session_', TRUE));
       }
@@ -578,7 +854,7 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Obtenir la miniature d'un média.
+   * Get media thumbnail.
    */
   protected function getMediaThumbnail($media) {
     $thumbnail = $media->get('thumbnail')->entity;
@@ -586,6 +862,67 @@ class UploadController extends ControllerBase {
       return $this->fileUrlGenerator->generateAbsoluteString($thumbnail->getFileUri());
     }
     return NULL;
+  }
+
+  /**
+   * Trigger notification after all uploads are complete.
+   */
+  public function triggerNotification($album_token, Request $request) {
+    $album = $this->loadAlbumByToken($album_token);
+
+    if (!$album) {
+      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    }
+
+    $user_name = $request->request->get('user_name');
+    $subfolder = $request->request->get('subfolder', '');
+
+    if (empty($user_name)) {
+      return new JsonResponse(['error' => $this->t('User name required.')], 400);
+    }
+
+    // Get the session ID.
+    $session_id = $this->getSessionId();
+
+    // Get all media uploaded by this user in this session/request.
+    $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
+    $query = $this->database->select('media_drop_uploads', 'u')
+      ->fields('u')
+      ->condition('album_id', $album->id)
+      ->condition('user_name', $user_name);
+
+    if ($this->currentUser()->isAnonymous()) {
+      $query->condition('session_id', $session_id);
+    }
+    else {
+      $query->condition('uid', $this->currentUser()->id());
+    }
+
+    // Get uploads from the last minute (to capture recent uploads).
+    $query->condition('created', $this->time->getRequestTime() - 60, '>=');
+
+    $uploads = $query->execute()->fetchAll();
+
+    if (!empty($uploads)) {
+      $uploaded_files = [];
+      foreach ($uploads as $upload) {
+        $media = Media::load($upload->media_id);
+        if ($media) {
+          $uploaded_files[] = [
+            'filename' => $media->label(),
+            'user_name' => $user_name,
+            'media' => $media,
+          ];
+        }
+      }
+
+      // Send a single notification email with all uploaded files.
+      if (!empty($uploaded_files)) {
+        $this->notificationService->notifyUploadBatch($user_name, $album, $uploaded_files);
+      }
+    }
+
+    return new JsonResponse(['success' => TRUE]);
   }
 
 }

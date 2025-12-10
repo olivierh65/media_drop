@@ -313,3 +313,67 @@ function media_drop_update_9003() {
 
   return t('Field auto_create_structure added to albums table.');
 }
+
+/**
+ * Add notification fields to albums table.
+ */
+function media_drop_update_9004() {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->fieldExists('media_drop_albums', 'enable_notifications')) {
+    $schema->addField('media_drop_albums', 'enable_notifications', [
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+      'description' => 'Enable email notifications for this album (1=yes, 0=no)',
+    ]);
+  }
+
+  if (!$schema->fieldExists('media_drop_albums', 'notification_groups')) {
+    $schema->addField('media_drop_albums', 'notification_groups', [
+      'type' => 'text',
+      'not null' => FALSE,
+      'description' => 'Comma-separated list of group IDs to notify',
+    ]);
+  }
+
+  if (!$schema->fieldExists('media_drop_albums', 'notification_email')) {
+    $schema->addField('media_drop_albums', 'notification_email', [
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+      'description' => 'Additional email address to notify',
+    ]);
+  }
+
+  return t('Notification fields added to albums table.');
+}
+
+/**
+ * Rename notification_groups to notification_roles.
+ */
+function media_drop_update_9005() {
+  $schema = \Drupal::database()->schema();
+  $connection = \Drupal::database();
+
+  // If old field exists, rename it.
+  if ($schema->fieldExists('media_drop_albums', 'notification_groups')) {
+    // Add new field if it doesn't exist.
+    if (!$schema->fieldExists('media_drop_albums', 'notification_roles')) {
+      $schema->addField('media_drop_albums', 'notification_roles', [
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'Comma-separated list of role IDs to notify',
+      ]);
+    }
+
+    // Copy data from old field to new field if data exists.
+    $connection->query('UPDATE {media_drop_albums} SET notification_roles = notification_groups WHERE notification_groups IS NOT NULL AND notification_groups != \'\'');
+
+    // Drop old field.
+    $schema->dropField('media_drop_albums', 'notification_groups');
+  }
+
+  return t('Notification field renamed from groups to roles.');
+}

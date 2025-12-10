@@ -8,8 +8,13 @@ use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Component\Utility\Crypt;
+use Drupal\Core\Extension\ModuleExtensionList;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Drupal\Component\Datetime\TimeInterface;
+use Drupal\media_drop\Service\TaxonomyService;
 
 /**
  * Form for creating/editing albums.
@@ -22,7 +27,6 @@ class AlbumForm extends FormBase {
    * @var \Drupal\Core\Database\Connection
    */
   protected $database;
-
   /**
    * The entity type manager.
    *
@@ -31,11 +35,59 @@ class AlbumForm extends FormBase {
   protected $entityTypeManager;
 
   /**
+   * The config factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $configFactory;
+
+  /**
+   * The extension list module service.
+   *
+   * @var \Drupal\Core\Extension\ModuleExtensionList
+   */
+  protected $extensionListModule;
+
+  /**
+   * The request stack.
+   *
+   * @var \Symfony\Component\HttpFoundation\RequestStack
+   */
+  protected $requestStack;
+
+  /**
+   * The time service.
+   *
+   * @var \Drupal\Component\Datetime\TimeInterface
+   */
+  protected $time;
+
+  /**
+   * The taxonomy service.
+   *
+   * @var \Drupal\media_drop\Service\TaxonomyService
+   */
+  protected $taxonomyService;
+
+  /**
    * Constructs a new AlbumForm.
    */
-  public function __construct(Connection $database, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(
+    Connection $database,
+    EntityTypeManagerInterface $entity_type_manager,
+    ConfigFactoryInterface $config_factory,
+    ModuleExtensionList $extension_list_module,
+    RequestStack $request_stack,
+    TimeInterface $time,
+    TaxonomyService $taxonomy_service,
+  ) {
     $this->database = $database;
     $this->entityTypeManager = $entity_type_manager;
+    $this->configFactory = $config_factory;
+    $this->extensionListModule = $extension_list_module;
+    $this->requestStack = $request_stack;
+    $this->time = $time;
+    $this->taxonomyService = $taxonomy_service;
   }
 
   /**
@@ -44,8 +96,14 @@ class AlbumForm extends FormBase {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('database'),
-      $container->get('entity_type.manager')
+      $container->get('entity_type.manager'),
+      $container->get('config.factory'),
+      $container->get('extension.list.module'),
+      $container->get('request_stack'),
+      $container->get('datetime.time'),
+      $container->get('media_drop.taxonomy_service')
     );
+
   }
 
   /**
@@ -132,11 +190,11 @@ class AlbumForm extends FormBase {
       '#default_value' => $album ? $album->media_directory : '',
       '#maxlength' => 255,
       '#description' => $this->t('Optional path in the Media Browser to organize media (e.g: /albums/birthday2025).<br>Leave empty to use root.'),
-      '#access' => !\Drupal::moduleHandler()->moduleExists('media_directories'),
+      '#access' => !$this->extensionListModule->getPath('media_directories'),
     ];
 
     // If media_directories module is enabled, propose the taxonomy.
-    if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
+    if ($this->extensionListModule->getPath('media_directories')) {
       $vocabulary_id = $this->getMediaDirectoriesVocabulary();
 
       if ($vocabulary_id) {
@@ -187,7 +245,7 @@ class AlbumForm extends FormBase {
     }
 
     if ($album) {
-      $url = \Drupal::request()->getSchemeAndHttpHost() . '/media-drop/' . $album->token;
+      $url = $this->requestStack->getCurrentRequest()->getSchemeAndHttpHost() . '/media-drop/' . $album->token;
 
       $form['current_url'] = [
         '#type' => 'item',
@@ -202,6 +260,47 @@ class AlbumForm extends FormBase {
         '#description' => $this->t('Check this box to generate a new URL. The old URL will no longer work.'),
       ];
     }
+
+    // Notifications section.
+    $form['notifications'] = [
+      '#type' => 'fieldset',
+      '#title' => $this->t('Notifications'),
+      '#tree' => TRUE,
+    ];
+
+    $form['notifications']['enable_notifications'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable email notifications'),
+      '#default_value' => $album ? (int) $album->enable_notifications : FALSE,
+      '#description' => $this->t('Send email notifications when media is uploaded to this album.'),
+    ];
+
+    // Load available roles.
+    $roles = $this->loadRoles();
+    $form['notifications']['notification_roles'] = [
+      '#type' => 'checkboxes',
+      '#title' => $this->t('Notify roles'),
+      '#options' => $roles,
+      '#default_value' => $album && !empty($album->notification_roles) ? explode(',', $album->notification_roles) : [],
+      '#description' => $this->t('Select which roles should receive email notifications about uploads to this album.'),
+      '#states' => [
+        'visible' => [
+          ':input[name="notifications[enable_notifications]"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+
+    $form['notifications']['notification_email'] = [
+      '#type' => 'email',
+      '#title' => $this->t('Additional notification email'),
+      '#default_value' => $album && !empty($album->notification_email) ? $album->notification_email : '',
+      '#description' => $this->t('Optional: Send notifications to this email address in addition to users with selected roles.'),
+      '#states' => [
+        'visible' => [
+          ':input[name="notifications[enable_notifications]"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
 
     $form['status'] = [
       '#type' => 'checkbox',
@@ -248,7 +347,7 @@ class AlbumForm extends FormBase {
     }
 
     // If media_directories is not enabled, validate the text field.
-    if (!\Drupal::moduleHandler()->moduleExists('media_directories')) {
+    if (!$this->extensionListModule->getPath('media_directories')) {
       $media_directory = $form_state->getValue(['directories', 'media_directory']);
       if (!empty($media_directory)) {
         $media_directory = trim($media_directory);
@@ -266,7 +365,7 @@ class AlbumForm extends FormBase {
       $new_term_name = $form_state->getValue(['directories', 'create_new_term', 'new_term_name']);
       if (!empty($new_term_name) && empty(trim($new_term_name))) {
         $form_state->setErrorByName('directories][create_new_term][new_term_name',
-          $this->t('The directory name cannot be empty.'));
+        $this->t('The directory name cannot be empty.'));
       }
     }
   }
@@ -279,7 +378,7 @@ class AlbumForm extends FormBase {
 
     // Handle creation of a new term if requested (media_directories enabled)
     $media_directory_value = '';
-    if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
+    if ($this->extensionListModule->getPath('media_directories')) {
       $new_term_name = $form_state->getValue(['directories', 'create_new_term', 'new_term_name']);
 
       if (!empty($new_term_name)) {
@@ -313,9 +412,12 @@ class AlbumForm extends FormBase {
       'media_directory' => $media_directory_value,
       'default_media_type' => $form_state->getValue(['media_types', 'default_media_type']),
       'video_media_type' => $form_state->getValue(['media_types', 'video_media_type']),
-      'auto_create_structure' => \Drupal::moduleHandler()->moduleExists('media_directories') && $form_state->getValue(['directories', 'auto_create_structure']) ? 1 : 0,
+      'auto_create_structure' => $this->extensionListModule->getPath('media_directories') && $form_state->getValue(['directories', 'auto_create_structure']) ? 1 : 0,
+      'enable_notifications' => $form_state->getValue(['notifications', 'enable_notifications']) ? 1 : 0,
+      'notification_roles' => implode(',', array_filter($form_state->getValue(['notifications', 'notification_roles']))),
+      'notification_email' => $form_state->getValue(['notifications', 'notification_email']) ?: '',
       'status' => $form_state->getValue('status') ? 1 : 0,
-      'updated' => \Drupal::time()->getRequestTime(),
+      'updated' => $this->time->getRequestTime(),
     ];
 
     if ($album_id) {
@@ -334,7 +436,7 @@ class AlbumForm extends FormBase {
     else {
       // Create.
       $values['token'] = Crypt::randomBytesBase64(32);
-      $values['created'] = \Drupal::time()->getRequestTime();
+      $values['created'] = $this->time->getRequestTime();
 
       $this->database->insert('media_drop_albums')
         ->fields($values)
@@ -348,13 +450,12 @@ class AlbumForm extends FormBase {
         ->fetchField();
 
       // Automatically create directory structure if media_directories is enabled.
-      if ($new_album_id && \Drupal::moduleHandler()->moduleExists('media_directories')) {
+      if ($new_album_id && $this->extensionListModule->getPath('media_directories')) {
         try {
-          $taxonomy_service = \Drupal::service('media_drop.taxonomy_service');
           // Create the parent album term.
-          $album_term_id = $taxonomy_service->createAlbumDirectoryStructure(
-            $new_album_id,
-            $values['name']
+          $album_term_id = $this->taxonomyService->createAlbumDirectoryStructure(
+          $new_album_id,
+          $values['name']
           );
 
           // Update the album with the parent term ID.
@@ -443,7 +544,7 @@ class AlbumForm extends FormBase {
    * Get Media Directories taxonomy ID.
    */
   protected function getMediaDirectoriesVocabulary() {
-    $config = \Drupal::config('media_directories.settings');
+    $config = $this->configFactory->get('media_directories.settings');
     $vocabulary_id = $config->get('directory_taxonomy');
 
     return $vocabulary_id ?: NULL;
@@ -471,6 +572,24 @@ class AlbumForm extends FormBase {
     }
 
     return $options;
+  }
+
+  /**
+   * Load available roles.
+   */
+  protected function loadRoles() {
+    $roles = [];
+    $role_storage = $this->entityTypeManager->getStorage('user_role');
+    $role_entities = $role_storage->loadMultiple();
+
+    foreach ($role_entities as $role) {
+      // Skip anonymous and authenticated roles if desired.
+      if (!in_array($role->id(), ['anonymous', 'authenticated'])) {
+        $roles[$role->id()] = $role->label();
+      }
+    }
+
+    return $roles;
   }
 
 }

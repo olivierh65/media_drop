@@ -18,7 +18,6 @@
 
       const $container = $(container[0]);
 
-      let currentFolder = '';
       // Use user name from config, or localStorage for anonymous users
       let userName = config.user_name || localStorage.getItem('media_drop_user_name') || '';
 
@@ -43,82 +42,35 @@
     initInterface: function($container, config, userName) {
       const self = this;
 
-      // HTML Template
-      const html = `
-        <div class="media-drop-header">
-          <h1>${Drupal.t('Drop your media: @album', {'@album': config.album_name})}</h1>
-        </div>
+      // Pre-fill user name if available
+      if (config.user_name) {
+        $('#user-name-input', $container).val(config.user_name);
+      }
 
-        <div class="media-drop-user-info">
-          <label for="user-name-input">${Drupal.t('Your name')} :</label>
-          <input type="text" id="user-name-input" value="${userName}"
-                 placeholder="${Drupal.t('Enter your name')}" required ${!config.is_anonymous ? 'readonly' : ''} />
-          <button id="save-user-name" class="button" ${!config.is_anonymous ? 'disabled' : ''}>${Drupal.t('Save')}</button>
-        </div>
-
-        ${config.can_create_folder ? `
-        <div class="media-drop-folder-section">
-          <label>${Drupal.t('Organize in a sub-folder (optional)')} :</label>
-          <div class="folder-controls">
-            <select id="folder-select">
-              <option value="">${Drupal.t('-- Main folder --')}</option>
-            </select>
-            <button id="create-folder" class="button">${Drupal.t('Create folder')}</button>
-          </div>
-          <div id="new-folder-form" style="display: none;">
-            <input type="text" id="new-folder-name" placeholder="${Drupal.t('Folder name')}" />
-            <button id="confirm-folder" class="button button--primary">${Drupal.t('Create')}</button>
-            <button id="cancel-folder" class="button">${Drupal.t('Cancel')}</button>
-          </div>
-        </div>
-        ` : ''}
-
-        ${config.can_upload ? `
-        <div class="media-drop-dropzone">
-          <form action="${config.upload_url}" class="dropzone" id="media-dropzone">
-            <div class="dz-message">${Drupal.t('Drag and drop your photos and videos here or click to select')}</div>
-          </form>
-        </div>
-        ` : `
-        <div class="media-drop-no-permission">
-          <p>${Drupal.t('You do not have permission to drop media.')}</p>
-        </div>
-        `}
-
-        <div class="media-drop-gallery">
-          <h2>${Drupal.t('Your dropped media')}</h2>
-          <div id="media-gallery" class="media-grid"></div>
-        </div>
-      `;
-
-      $container.html(html);
-
-      // User name management
-      $('#save-user-name', $container).on('click', function() {
-        const name = $('#user-name-input', $container).val().trim();
-        if (name) {
-          localStorage.setItem('media_drop_user_name', name);
-          Drupal.announce(Drupal.t('Name saved'));
+      // Gérer localStorage pour anonymes
+      if (config.is_anonymous) {
+        const savedName = localStorage.getItem('media_drop_user_name') || '';
+        if (savedName) {
+          $('#user-name-input').val(savedName);
         }
-      });
+      }
 
       // Folder creation management
       if (config.can_create_folder) {
-        $('#create-folder', $container).on('click', function() {
+        $('#create-folder', $container).on('click', function(e) {
+          e.preventDefault();
           $('#new-folder-form', $container).show();
         });
 
-        $('#cancel-folder', $container).on('click', function() {
+        $('#cancel-folder', $container).on('click', function(e) {
+          e.preventDefault();
           $('#new-folder-form', $container).hide();
           $('#new-folder-name', $container).val('');
         });
 
-        $('#confirm-folder', $container).on('click', function() {
+        $('#confirm-folder', $container).on('click', function(e) {
+          e.preventDefault();
           self.createFolder(config, $container);
-        });
-
-        $('#folder-select', $container).on('change', function() {
-          currentFolder = $(this).val();
         });
       }
     },
@@ -131,8 +83,8 @@
       const dropzone = new Dropzone('#media-dropzone', {
         url: config.upload_url,
         paramName: 'file',
-        maxFilesize: 50, // MB
-        acceptedFiles: 'image/*,video/*',
+        maxFilesize: config.max_file_size || 50, // MB
+        acceptedFiles: config.accepted_files || 'image/*,video/*',
         addRemoveLinks: true,
         dictDefaultMessage: Drupal.t('Drag and drop your files here'),
         dictFallbackMessage: Drupal.t('Your browser does not support drag\'n\'drop'),
@@ -158,13 +110,41 @@
         success: function(file, response) {
           if (response.results && response.results[0] && response.results[0].success) {
             Drupal.announce(Drupal.t('File uploaded successfully'));
-            self.loadUserMedia(config);
           }
         },
 
         error: function(file, errorMessage) {
           console.error('Upload error:', errorMessage);
           Drupal.announce(Drupal.t('Error during upload'), 'assertive');
+        },
+
+        // This event is triggered when all files have been processed (success or error).
+        queuecomplete: function() {
+          // Reload the media list after ALL files are uploaded.
+          self.loadUserMedia(config);
+          // Trigger the notification via AJAX.
+          self.triggerNotification($container, config);
+        }
+      });
+    },
+
+    triggerNotification: function($container, config) {
+      const userName = $('#user-name-input', $container).val().trim();
+      const folder = $('#folder-select', $container).val();
+
+      $.ajax({
+        url: config.trigger_notification_url,
+        method: 'POST',
+        data: {
+          user_name: userName,
+          subfolder: folder
+        },
+        success: function(response) {
+          // Notification email has been sent after all uploads completed.
+          console.log('Notification triggered');
+        },
+        error: function(xhr) {
+          console.error('Error triggering notification');
         }
       });
     },

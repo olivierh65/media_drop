@@ -43,3 +43,34 @@ function media_drop_preprocess_views_view(&$variables) {
     $variables['#attached']['library'][] = 'media_drop/media-info';
   }
 }
+
+/**
+ * Implements hook_mail().
+ */
+function media_drop_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'upload_notification':
+      $message['subject'] = t('New media uploaded to @album', [
+        '@album' => $params['album']->name,
+      ]);
+
+      $message['body'][] = t('A new media has been uploaded to the album "@album".', [
+        '@album' => $params['album']->name,
+      ]);
+
+      $message['body'][] = '';
+
+      $message['body'][] = t('@file_count file@plurial uploaded by @user', [
+        '@file_count' => $params['file_count'],
+        '@plurial' => $params['file_count'] > 1 ? 's' : '',
+        '@user' => $params['user_name'],
+      ]);
+
+      $message['body'][] = '';
+      $message['body'][] = t('Manage your media at: @url', [
+        '@url' => \Drupal::request()->getSchemeAndHttpHost() . '/admin/config/media/media-drop/manage',
+      ]);
+
+      break;
+  }
+}
