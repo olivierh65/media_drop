@@ -141,7 +141,9 @@
             const result = response.results[0];
             if (result.success) {
               self.setFileStatus(file, 'success', '', false, this);
-              Drupal.announce(Drupal.t('File uploaded successfully'));
+              if (typeof Drupal.announce === 'function') {
+                Drupal.announce(Drupal.t('File uploaded successfully'));
+              }
             } else {
               // Handle different error types
               let error_msg = result.error;
@@ -151,7 +153,9 @@
                 is_duplicate = true;
               }
               self.setFileStatus(file, 'error', error_msg, is_duplicate, this);
-              Drupal.announce(Drupal.t('Error during upload') + ': ' + error_msg, 'assertive');
+              if (typeof Drupal.announce === 'function') {
+                Drupal.announce(Drupal.t('Error during upload') + ': ' + error_msg, 'assertive');
+              }
             }
           }
         },
@@ -196,7 +200,9 @@
 
           self.setFileStatus(file, 'error', displayError, false, this);
           console.error('Upload error:', errorMessage, xhr);
-          Drupal.announce(Drupal.t('Error during upload: @error', {'@error': displayError}), 'assertive');
+          if (typeof Drupal.announce === 'function') {
+            Drupal.announce(Drupal.t('Error during upload: @error', {'@error': displayError}), 'assertive');
+          }
         },
 
         // Add custom preview template with status indicator
@@ -432,7 +438,9 @@
             console.log('🔴 Cancelling upload and removing file...');
             // Remove the file - this actually stops the XHR request in Dropzone
             dropzone.removeFile(file);
-            Drupal.announce(Drupal.t('Upload cancelled'), 'polite');
+            if (typeof Drupal.announce === 'function') {
+              Drupal.announce(Drupal.t('Upload cancelled'), 'polite');
+            }
             console.log('✅ Upload cancelled and file removed');
           }
         });
@@ -499,7 +507,9 @@
           });
           // Call showClearSuccessButton again to hide the button
           self.showClearSuccessButton($container, dropzone);
-          Drupal.announce(Drupal.t('Completed uploads cleared'));
+          if (typeof Drupal.announce === 'function') {
+            Drupal.announce(Drupal.t('Completed uploads cleared'));
+          }
         });
 
         $dropzoneContainer.after($clearBtn);
@@ -558,7 +568,9 @@
             $select.val(response.safe_folder_name);
             $('#new-folder-form', $container).hide();
             $('#new-folder-name', $container).val('');
-            Drupal.announce(Drupal.t('Folder created'));
+            if (typeof Drupal.announce === 'function') {
+              Drupal.announce(Drupal.t('Folder created'));
+            }
           }
         },
         error: function(xhr) {
@@ -606,7 +618,9 @@
                       method: 'POST', // POST instead of DELETE for compatibility
                       success: function() {
                         $item.remove();
-                        Drupal.announce(Drupal.t('Media deleted'));
+                        if (typeof Drupal.announce === 'function') {
+                          Drupal.announce(Drupal.t('Media deleted'));
+                        }
                       },
                       error: function(xhr) {
                         alert(Drupal.t('Error during deletion'));

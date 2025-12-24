@@ -18,6 +18,7 @@ upload_interface:
     - core/drupal
     - core/once
     - core/drupalSettings
+    - core/drupal.announce
     - media_drop/dropzone
 
 admin_grid:
