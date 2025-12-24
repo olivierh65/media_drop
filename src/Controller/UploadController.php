@@ -399,6 +399,7 @@ class UploadController extends ControllerBase {
       'max_file_size' => $this->config('media_drop.settings')->get('max_filesize') ?: 50,
       'accepted_files' => $accepted_files,
       'upload_url' => Url::fromRoute('media_drop.ajax_upload', ['album_token' => $album_token])->toString(),
+      'check_duplicate_url' => Url::fromRoute('media_drop.ajax_check_duplicate', ['album_token' => $album_token])->toString(),
       'create_folder_url' => Url::fromRoute('media_drop.ajax_create_folder', ['album_token' => $album_token])->toString(),
       'list_folders_url' => Url::fromRoute('media_drop.ajax_list_folders', ['album_token' => $album_token])->toString(),
       'list_media_url' => Url::fromRoute('media_drop.ajax_list_media', ['album_token' => $album_token])->toString(),
@@ -1053,6 +1054,52 @@ class UploadController extends ControllerBase {
    *
    * @return array
    *   Array with 'exists' boolean and optional 'path' and 'size'.
+   */
+
+  /**
+   * Check if a file already exists via AJAX.
+   */
+  public function checkDuplicate($album_token, Request $request) {
+    $album = $this->loadAlbumByToken($album_token);
+
+    if (!$album) {
+      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    }
+
+    $filename = $request->request->get('filename');
+    $file_size = $request->request->get('file_size');
+    $user_name = $request->request->get('user_name');
+    $subfolder = $request->request->get('subfolder', '');
+
+    if (empty($filename) || empty($file_size) || empty($user_name)) {
+      return new JsonResponse(['error' => $this->t('Missing required parameters.')], 400);
+    }
+
+    // Build destination path (same logic as upload)
+    $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
+    $destination = $album->base_directory . '/' . $safe_user_name;
+    if (!empty($subfolder)) {
+      $safe_subfolder = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($subfolder));
+      $destination .= '/' . $safe_subfolder;
+    }
+
+    $destination_uri = $destination . '/' . $filename;
+
+    // Check if file exists.
+    $duplicate_check = $this->checkDuplicateFile($destination_uri, intval($file_size));
+
+    if ($duplicate_check['exists']) {
+      return new JsonResponse([
+        'exists' => TRUE,
+        'message' => $this->t('This file already exists (same name and size)'),
+      ]);
+    }
+
+    return new JsonResponse(['exists' => FALSE]);
+  }
+
+  /**
+   *
    */
   protected function checkDuplicateFile($destination_uri, $file_size) {
     // Check if file exists at destination.

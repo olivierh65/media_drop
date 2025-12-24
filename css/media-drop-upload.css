@@ -323,25 +323,28 @@
 }
 
 .dz-progress {
-  display: none;
-  height: 0.25rem;
+  display: none !important;
+  height: 0.5rem;
   background: #f0f0f0;
-  border-radius: 0.125rem;
+  border: 1px solid #ddd;
+  border-radius: 0.25rem;
   overflow: hidden;
   margin-top: 0.5rem;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .dz-preview.dz-uploading .dz-progress {
-  display: block;
+  display: block !important;
 }
 
 .dz-upload {
   display: block;
   height: 100%;
   background: #0087F7;
-  border-radius: 0.125rem;
+  border-radius: 0.15rem;
   width: 0%;
   transition: width 0.3s linear;
+  box-shadow: 0 1px 2px rgba(0, 135, 247, 0.3);
 }
 
 .dz-error-message {
@@ -416,6 +419,7 @@
 }
 
 .dz-retry-button,
+.dz-abort-button,
 .dz-remove {
   display: inline-flex;
   align-items: center;
@@ -444,6 +448,17 @@
   border-color: #0066cc;
 }
 
+.dz-abort-button {
+  background: #dc3545;
+  color: #fff;
+  border: 1px solid #dc3545;
+}
+
+.dz-abort-button:hover {
+  background: #c82333;
+  border-color: #c82333;
+}
+
 .retry-icon {
   font-size: 1rem;
   display: inline-block;
@@ -462,11 +477,15 @@
 }
 
 .dz-retry-button.dz-hidden {
-  display: none;
+  display: none !important;
+}
+
+.dz-abort-button.dz-hidden {
+  display: none !important;
 }
 
 .dz-remove.dz-hidden {
-  display: none;
+  display: none !important;
 }
 
 /* Clear success button */

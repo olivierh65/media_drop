@@ -129,3 +129,14 @@ media_drop.ajax_trigger_notification:
   options:
     no_cache: TRUE
   methods: [POST]
+
+media_drop.ajax_check_duplicate:
+  path: '/media-drop/{album_token}/check-duplicate'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\UploadController::checkDuplicate'
+    _title: 'Check Duplicate'
+  requirements:
+    _permission: 'upload media to albums'
+  options:
+    no_cache: TRUE
+  methods: [POST]

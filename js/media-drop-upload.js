@@ -100,6 +100,18 @@
           const userName = $('#user-name-input', $container).val().trim();
           const folder = $('#folder-select', $container).val();
 
+          console.log('🚀 Sending event triggered for:', file.name);
+          console.log('📝 Username:', userName);
+          console.log('📁 Folder:', folder);
+          console.log('📊 File size:', file.size);
+          console.log('📋 Upload URL:', config.upload_url);
+
+          // Check if file was marked to skip (duplicate or other issue)
+          if (file.skipUpload) {
+            console.log('⏭️ Skipping upload for:', file.name, '- marked as duplicate');
+            return false;
+          }
+
           if (!userName) {
             alert(Drupal.t('Please enter your name before dropping files.'));
             this.removeFile(file);
@@ -108,6 +120,11 @@
 
           formData.append('user_name', userName);
           formData.append('subfolder', folder);
+
+          console.log('✅ FormData prepared, starting upload...');
+
+          // Show uploading status
+          self.setFileStatus(file, 'uploading', '', false, this);
 
           // Store file info for retry capability
           uploadFileData[file.name] = {
@@ -119,6 +136,7 @@
         },
 
         success: function(file, response) {
+          console.log('✅ Success event:', file.name, response);
           if (response.results && response.results[0]) {
             const result = response.results[0];
             if (result.success) {
@@ -139,9 +157,46 @@
         },
 
         error: function(file, errorMessage, xhr) {
-          self.setFileStatus(file, 'error', errorMessage, false, this);
-          console.error('Upload error:', errorMessage);
-          Drupal.announce(Drupal.t('Error during upload'), 'assertive');
+          console.error('❌ Error event:', file.name);
+          console.error('💬 Error message:', errorMessage);
+          console.error('🔗 XHR status:', xhr ? xhr.status : 'no xhr');
+          console.error('📡 XHR response:', xhr ? xhr.response : 'no response');
+
+          let displayError = errorMessage;
+
+          // Check if this is a user-initiated cancel (no xhr status and "canceled" in message)
+          if (!xhr || !xhr.status) {
+            if (errorMessage && (errorMessage.includes('canceled') || errorMessage.includes('Canceled'))) {
+              displayError = Drupal.t('Upload cancelled by user');
+              console.log('✋ User cancelled the upload');
+            }
+          }
+
+          // If we got an HTML response (error pages), extract a meaningful message
+          if (xhr && xhr.status) {
+            if (xhr.status === 503) {
+              displayError = Drupal.t('Server temporarily unavailable (timeout). Please try again later.');
+            } else if (xhr.status === 500) {
+              displayError = Drupal.t('Server error (500). Please contact support.');
+            } else if (xhr.status === 403) {
+              displayError = Drupal.t('Permission denied.');
+            } else if (xhr.status === 404) {
+              displayError = Drupal.t('Upload endpoint not found.');
+            } else if (xhr.status >= 500) {
+              displayError = Drupal.t('Server error (@status). Please try again.', {'@status': xhr.status});
+            }
+          }
+
+          // If errorMessage looks like HTML, use the status-based error instead
+          if (errorMessage && (errorMessage.includes('<html') || errorMessage.includes('<!DOCTYPE'))) {
+            // It's an HTML response, use our custom message
+          } else if (errorMessage && !displayError.includes('cancelled')) {
+            displayError = errorMessage;
+          }
+
+          self.setFileStatus(file, 'error', displayError, false, this);
+          console.error('Upload error:', errorMessage, xhr);
+          Drupal.announce(Drupal.t('Error during upload: @error', {'@error': displayError}), 'assertive');
         },
 
         // Add custom preview template with status indicator
@@ -162,6 +217,9 @@
             <div class="dz-error-mark"><svg width="24" height="24" viewBox="0 0 54 54" class="icon icon-error"><circle cx="27" cy="27" r="27" fill="#F44336"/><path d="M16 16l22 22m0-22l-22 22" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg></div>
             <div class="dz-warning-mark"><svg width="24" height="24" viewBox="0 0 54 54" class="icon icon-warning"><circle cx="27" cy="27" r="27" fill="#FF9800"/><text x="27" y="38" font-size="32" font-weight="bold" fill="#fff" text-anchor="middle">!</text></svg></div>
             <div class="dz-action-buttons">
+              <button type="button" class="dz-abort-button button button--small button--danger dz-hidden">
+                <span class="abort-icon">⊘</span> ` + Drupal.t('Abort upload') + `
+              </button>
               <button type="button" class="dz-retry-button button button--small dz-hidden">
                 <span class="retry-icon">↻</span> ` + Drupal.t('Retry') + `
               </button>
@@ -182,6 +240,79 @@
 
       // Store dropzone reference for easy access
       $container.data('dropzone', dropzone);
+
+      console.log('✅ Dropzone initialized successfully');
+      console.log('📁 Dropzone config:', {
+        url: dropzone.options.url,
+        maxFilesize: dropzone.options.maxFilesize,
+        acceptedFiles: dropzone.options.acceptedFiles,
+        parallelUploads: dropzone.options.parallelUploads
+      });
+
+      // Add event listeners for debugging
+      dropzone.on('addedfile', function(file) {
+        console.log('📄 File added:', file.name, '(' + (file.size / 1024 / 1024).toFixed(2) + ' MB)');
+
+        // Check for duplicate before starting upload
+        const userName = $('#user-name-input', $container).val().trim();
+        const folder = $('#folder-select', $container).val();
+
+        if (!userName) {
+          console.log('⚠️ No username provided, skipping duplicate check');
+          return;
+        }
+
+        // Send duplicate check request
+        console.log('🔍 Checking for duplicates:', file.name);
+
+        $.ajax({
+          url: config.check_duplicate_url,
+          type: 'POST',
+          dataType: 'json',
+          data: {
+            filename: file.name,
+            file_size: file.size,
+            user_name: userName,
+            subfolder: folder
+          },
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          success: function(response) {
+            console.log('✅ Duplicate check response:', response);
+
+            if (response.exists) {
+              // File already exists - keep it in the list but mark as error
+              console.warn('⚠️ Duplicate file detected:', file.name);
+              file.uploadStatus = 'duplicate';
+              self.setFileStatus(file, 'error', response.message || Drupal.t('This file already exists'), true, dropzone);
+
+              // Don't upload the file - prevent it from being sent
+              // We'll do this by marking it so the sending event ignores it
+              file.skipUpload = true;
+            } else {
+              console.log('✅ File is unique, ready for upload');
+              // File is unique, it will be uploaded in the normal sending event
+              file.skipUpload = false;
+            }
+          },
+          error: function(xhr, status, error) {
+            console.error('❌ Duplicate check error:', status, error);
+            console.error('Response:', xhr.responseText);
+            // On error, allow the file to upload (fallback to server-side check)
+            console.log('⚠️ Allowing upload to proceed (server will verify)');
+          }
+        });
+      });
+
+      dropzone.on('uploadprogress', function(file, progress, bytesSent) {
+        // console.log('📊 Upload progress for ' + file.name + ':', Math.round(progress) + '%');
+      });
+
+      dropzone.on('sending', function(file, xhr, formData) {
+        console.log('🚀 Actually sending file:', file.name);
+      });
+
     },
 
     /**
@@ -199,7 +330,7 @@
         const styleStr = 'display: block !important; position: absolute !important; top: 2px !important; right: 2px !important; width: 24px !important; height: 24px !important; z-index: 20 !important;';
         $mark.attr('style', styleStr);
         $mark[0].style.cssText = styleStr;
-        
+
         // Keep reapplying the style if Dropzone removes it
         let counter = 0;
         const interval = setInterval(() => {
@@ -231,6 +362,8 @@
         hideMark($preview.find('.dz-error-mark'));
         hideMark($preview.find('.dz-warning-mark'));
         $preview.find('.dz-retry-button').addClass('dz-hidden');
+        $preview.find('.dz-abort-button').addClass('dz-hidden');
+        $preview.find('.dz-remove').removeClass('dz-hidden');
         $preview.find('.dz-error-message').hide();
       } else if (status === 'error' && isDuplicate) {
         file.uploadStatus = 'error';
@@ -244,6 +377,8 @@
         forceShowMark($preview.find('.dz-warning-mark'));
         $preview.find('.dz-error-message').show();
         $preview.find('.dz-retry-button').addClass('dz-hidden');
+        $preview.find('.dz-abort-button').addClass('dz-hidden');
+        $preview.find('.dz-remove').removeClass('dz-hidden');
       } else if (status === 'error') {
         file.uploadStatus = 'error';
         // Other error: show error, allow retry
@@ -255,6 +390,8 @@
         forceShowMark($preview.find('.dz-error-mark'));
         hideMark($preview.find('.dz-warning-mark'));
         $preview.find('.dz-error-message').show();
+        $preview.find('.dz-abort-button').addClass('dz-hidden');
+        $preview.find('.dz-remove').removeClass('dz-hidden');
 
         // Show retry button on error
         const $retryBtn = $preview.find('.dz-retry-button').removeClass('dz-hidden');
@@ -277,7 +414,28 @@
         hideMark($preview.find('.dz-error-mark'));
         hideMark($preview.find('.dz-warning-mark'));
         $preview.find('.dz-retry-button').addClass('dz-hidden');
+        $preview.find('.dz-abort-button').removeClass('dz-hidden');
+        $preview.find('.dz-remove').addClass('dz-hidden');
         $preview.find('.dz-error-message').hide();
+        // Force progress bar to show - remove inline style that might override CSS
+        const $progress = $preview.find('.dz-progress');
+        $progress.removeAttr('style');
+        $progress.css('display', 'block');
+
+        // Show abort button
+        const $abortBtn = $preview.find('.dz-abort-button');
+        $abortBtn.off('click').on('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('🛑 Abort clicked for:', file.name);
+          if (dropzone) {
+            console.log('🔴 Cancelling upload and removing file...');
+            // Remove the file - this actually stops the XHR request in Dropzone
+            dropzone.removeFile(file);
+            Drupal.announce(Drupal.t('Upload cancelled'), 'polite');
+            console.log('✅ Upload cancelled and file removed');
+          }
+        });
       }
     },
 
