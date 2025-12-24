@@ -265,6 +265,7 @@ class AlbumForm extends FormBase {
     $form['notifications'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Notifications'),
+      '#description' => $this->t('Configure email notifications for uploads to this album. <strong>Note:</strong> Access permissions are managed through Media Drop permissions in the Roles & Permissions settings, not here.'),
       '#tree' => TRUE,
     ];
 
@@ -279,10 +280,10 @@ class AlbumForm extends FormBase {
     $roles = $this->loadRoles();
     $form['notifications']['notification_roles'] = [
       '#type' => 'checkboxes',
-      '#title' => $this->t('Notify roles'),
+      '#title' => $this->t('Notify users with these roles'),
       '#options' => $roles,
       '#default_value' => $album && !empty($album->notification_roles) ? explode(',', $album->notification_roles) : [],
-      '#description' => $this->t('Select which roles should receive email notifications about uploads to this album.'),
+      '#description' => $this->t('Select which user roles should receive email notifications about uploads to this album. This only controls who gets notified, not who can access the album.'),
       '#states' => [
         'visible' => [
           ':input[name="notifications[enable_notifications]"]' => ['checked' => TRUE],

@@ -1,20 +1,20 @@
 administer media drop:
-  title: 'Administer Media Drop'
-  description: 'Manage albums, settings, and media type mappings'
+  title: 'Media Drop: Administer'
+  description: 'Manage Media Drop albums, settings, and media type mappings. This is a system administration permission.'
   restrict access: true
 
 upload media to albums:
-  title: 'Upload media to albums'
-  description: 'Allows uploading files to albums'
+  title: 'Media Drop: Upload media to albums'
+  description: 'Allows users to upload files to Media Drop albums. This grants access to the album upload page and file upload functionality.'
 
 view own uploaded media:
-  title: 'View own media'
-  description: 'Allows viewing media that the user has uploaded'
+  title: 'Media Drop: View own media'
+  description: 'Allows users to view and browse media files they have personally uploaded to Media Drop albums.'
 
 delete own uploaded media:
-  title: 'Delete own media'
-  description: 'Allows deleting media that the user has uploaded'
+  title: 'Media Drop: Delete own media'
+  description: 'Allows users to delete media files they have personally uploaded to Media Drop albums.'
 
 create album folders:
-  title: 'Create subfolders in albums'
-  description: 'Allows creating subfolders to organize media'
+  title: 'Media Drop: Create subfolders'
+  description: 'Allows users to create and organize subfolders within Media Drop albums to structure their uploads.'
