@@ -85,14 +85,16 @@ class ManageMediaController extends ControllerBase {
    * Media management page.
    */
   public function managePage() {
-    // Check if VBO is installed.
-    if (!$this->moduleHandler->moduleExists('views_bulk_operations')) {
+    // Check if VBO is installed and enabled.
+    $vbo_installed = $this->moduleHandler->moduleExists('views_bulk_operations');
+
+    if (!$vbo_installed) {
       $build['warning'] = [
         '#markup' => '<div class="messages messages--warning">' .
-        $this->t('The <a href="@url" target="_blank">Views Bulk Operations</a> module must be installed to use this functionality.', [
+        $this->t('The <a href="@url" target="_blank">Views Bulk Operations</a> module must be installed and enabled to use this functionality.', [
           '@url' => 'https://www.drupal.org/project/views_bulk_operations',
         ]) . '<br><br>' .
-        $this->t('Installation: <code>composer require drupal/views_bulk_operations && drush en views_bulk_operations -y</code>') .
+        $this->t('Installation: <code>composer require drupal/views_bulk_operations && drush en views_bulk_operations -y && drush cr</code>') .
         '</div>',
       ];
       return $build;

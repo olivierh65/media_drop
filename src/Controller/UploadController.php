@@ -19,6 +19,7 @@ use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\media_drop\Service\TaxonomyService;
 use Drupal\media_drop\Service\NotificationService;
+use Psr\Log\LoggerInterface;
 
 /**
  * Controller for media upload interface.
@@ -103,6 +104,13 @@ class UploadController extends ControllerBase {
   protected $notificationService;
 
   /**
+   * The logger.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected $logger;
+
+  /**
    * Constructs a new UploadController.
    */
   public function __construct(
@@ -117,6 +125,7 @@ class UploadController extends ControllerBase {
     ModuleHandlerInterface $module_handler,
     TaxonomyService $taxonomy_service,
     NotificationService $notification_service,
+    LoggerInterface $logger,
   ) {
     $this->database = $database;
     $this->entityTypeManager = $entity_type_manager;
@@ -129,6 +138,7 @@ class UploadController extends ControllerBase {
     $this->moduleHandler = $module_handler;
     $this->taxonomyService = $taxonomy_service;
     $this->notificationService = $notification_service;
+    $this->logger = $logger;
   }
 
   /**
@@ -146,7 +156,8 @@ class UploadController extends ControllerBase {
       $container->get('datetime.time'),
       $container->get('module_handler'),
       $container->get('media_drop.taxonomy_service'),
-      $container->get('media_drop.notification_service')
+      $container->get('media_drop.notification_service'),
+      $container->get('logger.factory')->get('media_drop')
     );
   }
 
@@ -159,6 +170,17 @@ class UploadController extends ControllerBase {
     if (!$album) {
       return [
         '#markup' => '<p>' . $this->t('Album not found or inactive.') . '</p>',
+      ];
+    }
+
+    // Check upload permission early.
+    if (!$this->currentUser()->hasPermission('upload media to albums')) {
+      $this->logger->warning('User @uid attempted to access upload page without permission for album @album', [
+        '@uid' => $this->currentUser()->id(),
+        '@album' => $album_token,
+      ]);
+      return [
+        '#markup' => '<p>' . $this->t('You do not have permission to access this page.') . '</p>',
       ];
     }
 
@@ -400,11 +422,16 @@ class UploadController extends ControllerBase {
     $album = $this->loadAlbumByToken($album_token);
 
     if (!$album) {
+      $this->logger->error('Album not found for token: @token', ['@token' => $album_token]);
       return new JsonResponse(['error' => $this->t('Album not found.')], 404);
     }
 
-    // Check permissions.
+    // Check permissions - mandatory check.
     if (!$this->currentUser()->hasPermission('upload media to albums')) {
+      $this->logger->warning('User @uid denied upload permission for album @album', [
+        '@uid' => $this->currentUser()->id(),
+        '@album' => $album->id,
+      ]);
       return new JsonResponse(['error' => $this->t('Permission denied.')], 403);
     }
 
@@ -431,8 +458,17 @@ class UploadController extends ControllerBase {
       $destination .= '/' . $safe_subfolder;
     }
 
-    // Create directory if it doesn't exist.
-    $this->fileSystem->prepareDirectory($destination, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+    // Check if we can write to destination.
+    try {
+      $this->fileSystem->prepareDirectory($destination, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+    }
+    catch (\Exception $e) {
+      $this->logger->error('Failed to prepare directory @dest: @error', [
+        '@dest' => $destination,
+        '@error' => $e->getMessage(),
+      ]);
+      return new JsonResponse(['error' => $this->t('Cannot write to upload directory.')], 500);
+    }
 
     $results = [];
     // Accumulate files for single notification email.
@@ -448,9 +484,40 @@ class UploadController extends ControllerBase {
       }
 
       try {
+        // Validate file existence and readability.
+        if (!$file->isValid()) {
+          $error_msg = $file->getErrorMessage();
+          $this->logger->warning('File upload error for @file: @error', [
+            '@file' => $file->getClientOriginalName(),
+            '@error' => $error_msg,
+          ]);
+          $results[] = [
+            'success' => FALSE,
+            'filename' => $file->getClientOriginalName(),
+            'error' => $error_msg,
+          ];
+          continue;
+        }
+
         // Get file information BEFORE manipulation.
         $filename = $file->getClientOriginalName();
         $destination_uri = $destination . '/' . $filename;
+
+        // Check if file already exists with same size (duplicate check).
+        $duplicate_check = $this->checkDuplicateFile($destination_uri, $file->getSize());
+        if ($duplicate_check['exists']) {
+          $this->logger->notice('Duplicate file detected: @file (size: @size)', [
+            '@file' => $filename,
+            '@size' => $file->getSize(),
+          ]);
+          $results[] = [
+            'success' => FALSE,
+            'filename' => $filename,
+            'error' => $this->t('This file already exists in the destination folder.'),
+            'is_duplicate' => TRUE,
+          ];
+          continue;
+        }
 
         // Guess MIME type based on file extension.
         // Use multiple methods to maximize success chances.
@@ -470,6 +537,10 @@ class UploadController extends ControllerBase {
         $media_type = $this->getMediaTypeForMime($mime_type, $album);
 
         if (!$media_type) {
+          $this->logger->notice('Unsupported MIME type @mime for file @file', [
+            '@mime' => $mime_type,
+            '@file' => $filename,
+          ]);
           $results[] = [
             'success' => FALSE,
             'filename' => $filename,
@@ -481,6 +552,16 @@ class UploadController extends ControllerBase {
         // Copy uploaded file to final destination
         // using writeData() which preserves the name and MIME type.
         $data = file_get_contents($file->getRealPath());
+        if ($data === FALSE) {
+          $this->logger->error('Failed to read uploaded file: @file', ['@file' => $filename]);
+          $results[] = [
+            'success' => FALSE,
+            'filename' => $filename,
+            'error' => $this->t('Error reading the file.'),
+          ];
+          continue;
+        }
+
         $file_entity = $this->fileRepository->writeData(
           $data,
           $destination_uri,
@@ -488,6 +569,7 @@ class UploadController extends ControllerBase {
         );
 
         if (!$file_entity) {
+          $this->logger->error('Failed to save file to destination: @dest', ['@dest' => $destination_uri]);
           $results[] = [
             'success' => FALSE,
             'filename' => $filename,
@@ -570,12 +652,23 @@ class UploadController extends ControllerBase {
           'thumbnail' => $this->getMediaThumbnail($media),
         ];
 
+        $this->logger->info('File @file uploaded successfully by user @user to album @album', [
+          '@file' => $filename,
+          '@user' => $user_name,
+          '@album' => $album->id,
+        ]);
+
       }
       catch (\Exception $e) {
+        $filename = isset($file) ? $file->getClientOriginalName() : 'unknown';
+        $this->logger->error('Exception during file upload for @file: @error', [
+          '@file' => $filename,
+          '@error' => $e->getMessage(),
+        ]);
         $results[] = [
           'success' => FALSE,
-          'filename' => $file->getClientOriginalName(),
-          'error' => $e->getMessage(),
+          'filename' => $filename,
+          'error' => $this->t('Upload error: @error', ['@error' => $e->getMessage()]),
         ];
       }
     }
@@ -758,7 +851,32 @@ class UploadController extends ControllerBase {
     try {
       $media = Media::load($media_id);
       if ($media) {
+        // Get files before deleting media.
+        $files_to_delete = [];
+
+        // Try to identify the file fields dynamically.
+        $source_field = $media->getSource()->getConfiguration()['source_field'];
+        if ($media->hasField($source_field) && !$media->get($source_field)->isEmpty()) {
+          foreach ($media->get($source_field) as $field_item) {
+            if ($field_item->entity) {
+              $files_to_delete[] = $field_item->entity;
+            }
+          }
+        }
+
+        // Delete the media entity.
         $media->delete();
+
+        // Delete physical files using Drupal File Repository.
+        foreach ($files_to_delete as $file) {
+          try {
+            $media->get($source_field)->entity->delete();
+            $this->logger->info('File deleted: ' . $file->getFilename());
+          }
+          catch (\Exception $e) {
+            $this->logger->warning('Failed to delete file: ' . $file->getFilename() . ' - ' . $e->getMessage());
+          }
+        }
       }
 
       $this->database->delete('media_drop_uploads')
@@ -923,6 +1041,33 @@ class UploadController extends ControllerBase {
     }
 
     return new JsonResponse(['success' => TRUE]);
+  }
+
+  /**
+   * Check if a file already exists with the same size.
+   *
+   * @param string $destination_uri
+   *   The destination URI.
+   * @param int $file_size
+   *   The file size in bytes.
+   *
+   * @return array
+   *   Array with 'exists' boolean and optional 'path' and 'size'.
+   */
+  protected function checkDuplicateFile($destination_uri, $file_size) {
+    // Check if file exists at destination.
+    if (file_exists($destination_uri)) {
+      $existing_size = filesize($destination_uri);
+      // Consider it a duplicate if sizes match (same content is likely).
+      if ($existing_size === $file_size) {
+        return [
+          'exists' => TRUE,
+          'path' => $destination_uri,
+          'size' => $existing_size,
+        ];
+      }
+    }
+    return ['exists' => FALSE];
   }
 
 }
