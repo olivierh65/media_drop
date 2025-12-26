@@ -18,6 +18,8 @@ media_drop.manage_media:
   route_name: media_drop.manage_media
   parent: media_drop.admin
   weight: 5
+  requirements:
+    _permission: 'manage media'
 
 media_drop.mime_types:
   title: 'MIME Mappings'

@@ -18,3 +18,7 @@ delete own uploaded media:
 create album folders:
   title: 'Media Drop: Create subfolders'
   description: 'Allows users to create and organize subfolders within Media Drop albums to structure their uploads.'
+
+manage media:
+  title: 'Media Drop: Manage media'
+  description: 'Allows users to manage media in albums using bulk operations such as moving, editing metadata, and assigning to directories.'

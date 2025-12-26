@@ -1460,6 +1460,28 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       }
     }
 
+    // Media metadata fields (Title, Alt).
+    $wrapper['step_2']['media_metadata'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Media Metadata'),
+      '#open' => TRUE,
+      '#tree' => TRUE,
+    ];
+
+    $wrapper['step_2']['media_metadata']['title'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Title'),
+      '#description' => $this->t('Set the title for all selected media.'),
+      '#default_value' => $this->configuration['media_metadata']['title'] ?? '',
+    ];
+
+    $wrapper['step_2']['media_metadata']['alt'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Alt text'),
+      '#description' => $this->t('Set the alt text for all selected media.'),
+      '#default_value' => $this->configuration['media_metadata']['alt'] ?? '',
+    ];
+
     return $wrapper;
   }
 
@@ -1532,6 +1554,17 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       $this->configuration['album_field_values'] = array_merge(
         $this->configuration['album_field_values'],
         $values['step_2']['album_fields']
+      );
+    }
+
+    // Store media metadata (title, alt).
+    if (isset($values['step_2']['media_metadata'])) {
+      if (!isset($this->configuration['media_metadata'])) {
+        $this->configuration['media_metadata'] = [];
+      }
+      $this->configuration['media_metadata'] = array_merge(
+        $this->configuration['media_metadata'],
+        $values['step_2']['media_metadata']
       );
     }
   }
@@ -1757,6 +1790,25 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
               $values[0]['description'] = $field_meta['description'];
               $media->set($field_name, $values);
             }
+          }
+        }
+      }
+    }
+
+    // Apply media metadata (title, alt).
+    if (isset($this->configuration['media_metadata'])) {
+      if (!empty($this->configuration['media_metadata']['title'])) {
+        $media->set('name', $this->configuration['media_metadata']['title']);
+      }
+
+      if (!empty($this->configuration['media_metadata']['alt'])) {
+        // Set alt text on the media name field or source field if available.
+        // For most media types, the alt is stored differently, so we'll try common fields.
+        if ($media->hasField('image') && !$media->get('image')->isEmpty()) {
+          $image_values = $media->get('image')->getValue();
+          if (!empty($image_values)) {
+            $image_values[0]['alt'] = $this->configuration['media_metadata']['alt'];
+            $media->set('image', $image_values);
           }
         }
       }

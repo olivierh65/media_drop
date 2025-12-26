@@ -2,6 +2,7 @@
 
 namespace Drupal\media_drop\Controller;
 
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Drupal\Core\Url;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Component\Serialization\Yaml;
@@ -85,6 +86,11 @@ class ManageMediaController extends ControllerBase {
    * Media management page.
    */
   public function managePage() {
+    // Check if user has permission to manage media.
+    if (!$this->currentUser()->hasPermission('manage media')) {
+      throw new AccessDeniedHttpException('You do not have permission to manage media.');
+    }
+
     // Check if VBO is installed and enabled.
     $vbo_installed = $this->moduleHandler->moduleExists('views_bulk_operations');
 
