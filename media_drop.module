@@ -74,3 +74,4 @@ function media_drop_mail($key, &$message, $params) {
       break;
   }
 }
+

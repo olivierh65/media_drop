@@ -6,6 +6,14 @@ media_drop.admin_settings:
   requirements:
     _permission: 'administer media drop'
 
+media_drop.taxonomy_autocomplete:
+  path: '/media-drop/taxonomy-autocomplete/{vocabularies}'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\TaxonomyAutocompleteController::autocomplete'
+  requirements:
+    _access: 'TRUE'
+  methods: [GET]
+
 media_drop.album_list:
   path: '/admin/config/media/media-drop/albums'
   defaults:

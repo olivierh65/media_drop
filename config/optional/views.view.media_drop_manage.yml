@@ -72,6 +72,13 @@ display:
                 label_override: ''
                 message_override: ''
             -
+              action_id: media_drop_add_to_album
+              preconfiguration:
+                add_confirmation: false
+                confirm_help_text: ''
+                label_override: ''
+                message_override: ''
+            -
               action_id: views_bulk_operations_delete_entity
               preconfiguration:
                 add_confirmation: false

@@ -84,52 +84,76 @@ class MediaInfoField extends FieldPluginBase {
       return '';
     }
 
-    // Load the media entity.
-    $media = $this->entityTypeManager->getStorage('media')->load($media_id);
+    try {
+      // Verify bundle exists for media entity type using the bundle info service.
+      $bundle_info = \Drupal::service('entity_type.bundle.info');
+      $media_bundles = $bundle_info->getBundleInfo('media');
 
-    if (!$media) {
-      return '';
-    }
-
-    // Get filterable fields for this media's bundle.
-    $filterable_fields = $this->getFilterableCustomFields($bundle);
-
-    if (empty($filterable_fields)) {
-      return '';
-    }
-
-    // Build the output with field values.
-    $output = [];
-
-    foreach ($filterable_fields as $field_name => $field_definition) {
-      if (!$media->hasField($field_name)) {
-        continue;
+      if (!isset($media_bundles[$bundle])) {
+        // Bundle doesn't exist for media entity type, skip rendering.
+        return '';
       }
 
-      $field = $media->get($field_name);
+      // Load the media entity.
+      $media = $this->entityTypeManager->getStorage('media')->load($media_id);
 
-      if ($field->isEmpty()) {
-        continue;
+      if (!$media) {
+        return '';
       }
 
-      $field_label = $field_definition->getLabel();
-      $field_type = $field_definition->getType();
-      $value = $this->getFieldValue($media, $field_name, $field_type);
+      // Get filterable fields for this media's bundle.
+      $filterable_fields = $this->getFilterableCustomFields($bundle);
 
-      if ($value) {
-        $output[] = [
-          'label' => $field_label,
-          'value' => $value,
-        ];
+      if (empty($filterable_fields)) {
+        return '';
       }
+
+      // Build the output with field values.
+      $output = [];
+
+      foreach ($filterable_fields as $field_name => $field_definition) {
+        if (!$media->hasField($field_name)) {
+          continue;
+        }
+
+        $field = $media->get($field_name);
+
+        if ($field->isEmpty()) {
+          continue;
+        }
+
+        $field_label = $field_definition->getLabel();
+        $field_type = $field_definition->getType();
+        $value = $this->getFieldValue($media, $field_name, $field_type);
+
+        if ($value) {
+          $output[] = [
+            'label' => $field_label,
+            'value' => $value,
+          ];
+        }
+      }
+
+      if (empty($output)) {
+        return '';
+      }
+
+      // Format the output.
+      return $this->formatOutput($output);
     }
-
-    if (empty($output)) {
+    catch (\Exception $e) {
+      // If there's an error rendering this field, return empty string
+      // rather than crashing the entire view.
+      \Drupal::logger('media_drop')->warning(
+        'Error rendering media info for media @id (bundle @bundle): @message',
+        [
+          '@id' => $media_id,
+          '@bundle' => $bundle,
+          '@message' => $e->getMessage(),
+        ]
+      );
       return '';
     }
-
-    // Format the output.
-    return $this->formatOutput($output);
   }
 
   /**

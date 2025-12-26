@@ -29,22 +29,40 @@ trait MediaFieldFilterTrait {
    *   Array of field definitions keyed by field name.
    */
   protected function getFilterableCustomFields($bundle) {
-    $field_definitions = $this->getEntityTypeManager()
-      ->getStorage('field_config')
-      ->loadByProperties([
-        'entity_type' => 'media',
-        'bundle' => $bundle,
-      ]);
+    try {
+      // Verify that 'media' entity type exists before attempting to load fields.
+      $entity_type_manager = $this->getEntityTypeManager();
+      $entity_type_manager->getDefinition('media');
 
-    $filterable_fields = [];
+      $field_definitions = $entity_type_manager
+        ->getStorage('field_config')
+        ->loadByProperties([
+          'entity_type' => 'media',
+          'bundle' => $bundle,
+        ]);
 
-    foreach ($field_definitions as $field_name_id => $field_definition) {
-      if ($this->shouldIncludeField($field_definition)) {
-        $filterable_fields[$field_definition->getName()] = $field_definition;
+      $filterable_fields = [];
+
+      foreach ($field_definitions as $field_name_id => $field_definition) {
+        if ($this->shouldIncludeField($field_definition)) {
+          $filterable_fields[$field_definition->getName()] = $field_definition;
+        }
       }
-    }
 
-    return $filterable_fields;
+      return $filterable_fields;
+    }
+    catch (\Exception $e) {
+      // If there's an error loading field definitions (e.g., bundle doesn't exist),
+      // return empty array rather than crashing.
+      \Drupal::logger('media_drop')->warning(
+        'Error loading filterable fields for bundle @bundle: @message',
+        [
+          '@bundle' => $bundle,
+          '@message' => $e->getMessage(),
+        ]
+      );
+      return [];
+    }
   }
 
   /**
