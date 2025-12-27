@@ -120,9 +120,15 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       }, $temp_store_data['list']);
 
       if (!empty($media_ids)) {
-        $this->mediaEntities = \Drupal::entityTypeManager()
-          ->getStorage('media')
-          ->loadMultiple($media_ids);
+        // Load the LATEST revision of each media to get current field values.
+        $media_storage = \Drupal::entityTypeManager()->getStorage('media');
+        $this->mediaEntities = [];
+        foreach ($media_ids as $media_id) {
+          $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
+          if ($latest_revision_id) {
+            $this->mediaEntities[$media_id] = $media_storage->loadRevision($latest_revision_id);
+          }
+        }
       }
     }
 
@@ -160,21 +166,32 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       ],
     ];
 
-    // Directory selection has been moved to Step 2.
-    // Step 2: Configure Album Fields.
-    if ($form_state->getValue('album_id')) {
-      $album_id = $form_state->getValue('album_id');
-      $this->albumNode = $this->entityTypeManager->getStorage('node')->load($album_id);
-    }
-
     // Wrapper for AJAX updates.
     $form['step_2_wrapper'] = [
       '#type' => 'container',
       '#attributes' => ['id' => 'album-fields-wrapper'],
     ];
 
-    if ($this->albumNode) {
-      $form['step_2_wrapper'] = $this->buildAlbumConfigurationForm($form['step_2_wrapper']);
+    // Directory selection has been moved to Step 2.
+    // Step 2: Configure Album Fields.
+    if ($form_state->getValue(['step_1', 'album_id'])) {
+      $album_id = $form_state->getValue(['step_1', 'album_id']);
+      $this->albumNode = $this->entityTypeManager->getStorage('node')->load($album_id);
+
+      if ($this->albumNode) {
+        // Build step_2 inside wrapper.
+        $form['step_2_wrapper']['step_2'] = $this->buildAlbumConfigurationForm([]);
+      }
+    }
+    else {
+      // Return hidden step_2 if no album selected.
+      $form['step_2_wrapper']['step_2'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Step 2: Configure Album Fields'),
+        '#open' => TRUE,
+        '#tree' => TRUE,
+        '#access' => FALSE,
+      ];
     }
 
     // Attach autocomplete libraries to the main form.
@@ -551,15 +568,19 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
             $field_name = $field_config->getName();
 
             if ($node->hasField($field_name)) {
-              // Get all media in this field.
+              // Get all media in this field (load latest revisions).
+              $media_storage = $this->entityTypeManager->getStorage('media');
               foreach ($node->get($field_name) as $item) {
                 $media_id = $item->target_id;
                 if ($media_id) {
-                  $media = $this->entityTypeManager->getStorage('media')->load($media_id);
-                  if ($media) {
-                    $bundle = $media->bundle();
-                    if (!in_array($bundle, $bundles)) {
-                      $bundles[] = $bundle;
+                  $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
+                  if ($latest_revision_id) {
+                    $media = $media_storage->loadRevision($latest_revision_id);
+                    if ($media) {
+                      $bundle = $media->bundle();
+                      if (!in_array($bundle, $bundles)) {
+                        $bundles[] = $bundle;
+                      }
                     }
                   }
                 }
@@ -650,7 +671,8 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
 
       // Recursively add children.
       $child_options = $this->buildHierarchicalDirectoryOptions($terms, $term_id, $depth + 1);
-      $options = array_merge($options, $child_options);
+      // Use + instead of array_merge to preserve numeric keys (term IDs).
+      $options = $options + $child_options;
     }
 
     return $options;
@@ -738,16 +760,12 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
     }
 
     // Build hierarchical options for unused directories from full vocabulary.
-    $all_options_with_state = $this->buildHierarchicalDirectoryOptionsWithState(
-      $terms,
-      $used_direct,
-      $used_all
-    );
+    $all_options = $this->buildHierarchicalDirectoryOptions($terms, 0, 0);
 
     $unused_options = [];
-    foreach ($all_options_with_state as $tid => $data) {
+    foreach ($all_options as $tid => $label) {
       if (!in_array($tid, $used_all)) {
-        $unused_options[$tid] = $data['label'];
+        $unused_options[$tid] = $label;
       }
     }
 
@@ -786,68 +804,6 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       '#default_value' => $this->configuration['directory_tid'] ?? 0,
       '#description' => $this->t('Optionally move the selected media to this directory. Directories marked with ★ are currently used in this album. Indentation shows the directory hierarchy.'),
     ];
-  }
-
-  /**
-   * Build hierarchical directory options with state classification.
-   *
-   * @param array $terms
-   *   Array of taxonomy terms.
-   * @param array $used_direct
-   *   Array of term IDs that directly contain media.
-   * @param array $used_all
-   *   Array of term IDs that contain media or are ancestors of those that do.
-   * @param int $parent_id
-   *   Parent term ID for recursion.
-   * @param int $depth
-   *   Current depth level.
-   *
-   * @return array
-   *   Options array with state: [tid => ['label' => ..., 'state' => ...], ...]
-   */
-  protected function buildHierarchicalDirectoryOptionsWithState(array $terms, array $used_direct, array $used_all, $parent_id = 0, $depth = 0) {
-    $options = [];
-    $indent = str_repeat('– ', $depth);
-
-    foreach ($terms as $term) {
-      $parent = $term->get('parent');
-      $term_parent_id = !empty($parent->target_id) ? $parent->target_id : 0;
-
-      if ($term_parent_id != $parent_id) {
-        continue;
-      }
-
-      $term_id = $term->id();
-      $term_label = $term->label();
-
-      // Determine state: direct > ancestor > unused.
-      if (in_array($term_id, $used_direct)) {
-        $state = 'direct';
-      }
-      elseif (in_array($term_id, $used_all)) {
-        $state = 'ancestor';
-      }
-      else {
-        $state = 'unused';
-      }
-
-      $options[$term_id] = [
-        'label' => $indent . $term_label,
-        'state' => $state,
-      ];
-
-      // Recursively add children.
-      $child_options = $this->buildHierarchicalDirectoryOptionsWithState(
-        $terms,
-        $used_direct,
-        $used_all,
-        $term_id,
-        $depth + 1
-      );
-      $options = array_merge($options, $child_options);
-    }
-
-    return $options;
   }
 
   /**
@@ -904,7 +860,15 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
             }
 
             if (!empty($media_ids)) {
-              $medias = $this->entityTypeManager->getStorage('media')->loadMultiple($media_ids);
+              // Load the LATEST revision of each media to get current directory values.
+              $media_storage = $this->entityTypeManager->getStorage('media');
+              $medias = [];
+              foreach ($media_ids as $media_id) {
+                $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
+                if ($latest_revision_id) {
+                  $medias[$media_id] = $media_storage->loadRevision($latest_revision_id);
+                }
+              }
 
               foreach ($medias as $media) {
                 // Get directory from media.
@@ -1373,23 +1337,31 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
    * Build the album configuration form section.
    *
    * @param array $wrapper
-   *   The wrapper form element to populate.
+   *   Unused, kept for compatibility.
    *
    * @return array
-   *   The populated wrapper element.
+   *   The step_2 element ready to add to main form.
    */
   protected function buildAlbumConfigurationForm(array $wrapper) {
     if (!$this->albumNode) {
-      return $wrapper;
+      return [
+        '#type' => 'container',
+        '#access' => FALSE,
+        '#tree' => TRUE,
+        '#weight' => 10,
+      ];
     }
 
-    $wrapper['step_2'] = [
-      '#type' => 'details',
-      '#title' => $this->t('Step 2: Configure Album Fields'),
-      '#open' => TRUE,
-    ];
+    /*  $step_2 = [
+    '#type' => 'details',
+    '#title' => $this->t('Step 2: Configure Album Fields'),
+    '#open' => TRUE,
+    '#tree' => TRUE,
+    '#attributes' => ['id' => 'album-fields-wrapper'],
+    '#access' => TRUE,
+    ]; */
 
-    $wrapper['step_2']['info'] = [
+    $step_2['info'] = [
       '#markup' => '<div class="messages messages--status">' .
       $this->t('Album: <strong>@album_title</strong>', ['@album_title' => $this->albumNode->label()]) .
       '</div>',
@@ -1402,7 +1374,7 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       foreach ($incompatible_media as $media) {
         $incompatible_list .= '<li>' . $media->label() . ' (' . $media->bundle() . ')</li>';
       }
-      $wrapper['step_2']['incompatible_warning'] = [
+      $step_2['incompatible_warning'] = [
         '#markup' => '<div class="messages messages--warning">' .
         $this->t('<strong>These media will NOT be imported:</strong>') .
         '<ul>' . $incompatible_list . '</ul>' .
@@ -1414,7 +1386,7 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
     if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
       $directory_element = $this->buildDirectorySelector();
       if ($directory_element) {
-        $wrapper['step_2']['directory_tid'] = $directory_element;
+        $step_2['directory_tid'] = $directory_element;
       }
     }
 
@@ -1422,7 +1394,7 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
     $grouped_album_fields = $this->getAlbumEditableFieldsGrouped($this->albumNode);
 
     if (!empty($grouped_album_fields)) {
-      $wrapper['step_2']['album_fields'] = [
+      $step_2['album_fields'] = [
         '#type' => 'details',
         '#title' => $this->t('Media Type Fields (from Media Field)'),
         '#open' => TRUE,
@@ -1434,7 +1406,7 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
         $field_label = $field_group['designation'];
         $field_names = $field_group['field_names'];
 
-        $wrapper['step_2']['album_fields'][$designation_key] = [
+        $step_2['album_fields'][$designation_key] = [
           '#type' => 'details',
           '#title' => $field_label,
           '#open' => FALSE,
@@ -1442,47 +1414,47 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
 
         $default_value = $this->configuration['album_field_values'][$designation_key] ?? NULL;
 
-        $wrapper['step_2']['album_fields'][$designation_key]['value'] = $this->buildFieldWidget(
+        $step_2['album_fields'][$designation_key]['value'] = $this->buildFieldWidget(
           $field_config,
           $default_value
         );
 
         // Store the field names that belong to this designation for later processing.
-        $wrapper['step_2']['album_fields'][$designation_key]['field_names'] = [
+        $step_2['album_fields'][$designation_key]['field_names'] = [
           '#type' => 'value',
           '#value' => $field_names,
         ];
 
         $field_names_display = implode(', ', $field_names);
-        $wrapper['step_2']['album_fields'][$designation_key]['description'] = [
+        $step_2['album_fields'][$designation_key]['description'] = [
           '#markup' => '<p><em>' . $this->t('This value will be applied to all selected media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
         ];
       }
     }
 
     // Media metadata fields (Title, Alt).
-    $wrapper['step_2']['media_metadata'] = [
+    $step_2['media_metadata'] = [
       '#type' => 'details',
       '#title' => $this->t('Media Metadata'),
       '#open' => TRUE,
       '#tree' => TRUE,
     ];
 
-    $wrapper['step_2']['media_metadata']['title'] = [
+    $step_2['media_metadata']['title'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Title'),
       '#description' => $this->t('Set the title for all selected media.'),
       '#default_value' => $this->configuration['media_metadata']['title'] ?? '',
     ];
 
-    $wrapper['step_2']['media_metadata']['alt'] = [
+    $step_2['media_metadata']['alt'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Alt text'),
       '#description' => $this->t('Set the alt text for all selected media.'),
       '#default_value' => $this->configuration['media_metadata']['alt'] ?? '',
     ];
 
-    return $wrapper;
+    return $step_2;
   }
 
   /**
@@ -1496,33 +1468,11 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
    * @return array
    *   The updated form element.
    */
-  public static function ajaxUpdateAlbumFields(array $form, FormStateInterface $form_state) {
-    // Get the action plugin to access instance methods.
-    $action = new self([], 'media_drop_add_to_album', [], \Drupal::service('entity_type.manager'));
+  public function ajaxUpdateAlbumFields(array $form, FormStateInterface $form_state) {
+    // Force form rebuild so Drupal recalculates all form values.
+    $form_state->setRebuild(TRUE);
 
-    // Get selected media from tempstore (previous step).
-    $tempstore = \Drupal::service('tempstore.private')->get('views_bulk_operations');
-    $action->selectedMedia = $tempstore->get('selected_media') ?? [];
-
-    // Get selected album ID.
-    $album_id = $form_state->getValue(['step_1', 'album_id']);
-
-    if ($album_id) {
-      // Load the album node.
-      $action->albumNode = \Drupal::entityTypeManager()
-        ->getStorage('node')
-        ->load($album_id);
-
-      // Rebuild the album configuration form.
-      if ($action->albumNode) {
-        $wrapper = [
-          '#type' => 'container',
-          '#attributes' => ['id' => 'album-fields-wrapper'],
-        ];
-        $form['step_2_wrapper'] = $action->buildAlbumConfigurationForm($wrapper);
-      }
-    }
-
+    // Return the wrapper (which contains step_2).
     return $form['step_2_wrapper'];
   }
 
@@ -1532,39 +1482,57 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     $values = $form_state->getValues();
 
-    $this->configuration['album_id'] = $values['step_1']['album_id'] ?? NULL;
-    $this->configuration['directory_tid'] = $values['step_1']['directory_tid'] ?? NULL;
-
-    // Store media field values (description, alt).
-    if (isset($values['step_2']['media_fields'])) {
-      if (!isset($this->configuration['media_field_values'])) {
-        $this->configuration['media_field_values'] = [];
+    // DEBUG: Log the structure of $values to see where directory_tid is.
+    \Drupal::logger('media_drop')->notice('submitConfigurationForm - $values structure: @values', [
+      '@values' => json_encode(array_keys($values), JSON_PRETTY_PRINT),
+    ]);
+    if (isset($values['step_2'])) {
+      \Drupal::logger('media_drop')->notice('step_2 keys: @keys', [
+        '@keys' => json_encode(array_keys($values['step_2']), JSON_PRETTY_PRINT),
+      ]);
+      if (isset($values['step_2']['directory_tid'])) {
+        \Drupal::logger('media_drop')->notice('directory_tid found in step_2: @tid', [
+          '@tid' => $values['step_2']['directory_tid'],
+        ]);
       }
-      $this->configuration['media_field_values'] = array_merge(
-        $this->configuration['media_field_values'],
-        $values['step_2']['media_fields']
-      );
     }
 
+    $this->configuration['album_id'] = $values['step_1']['album_id'] ?? NULL;
+
+    // Get directory_tid from step_2 inside wrapper.
+    $directory_tid = NULL;
+    if (isset($values['step_2_wrapper']['step_2']) && is_array($values['step_2_wrapper']['step_2'])) {
+      $directory_tid = $values['step_2_wrapper']['step_2']['directory_tid'] ?? NULL;
+      \Drupal::logger('media_drop')->notice('Raw directory_tid from form: @tid (type: @type)', [
+        '@tid' => var_export($directory_tid, TRUE),
+        '@type' => gettype($directory_tid),
+      ]);
+      // Ensure directory_tid is an integer (not a string).
+      if ($directory_tid !== NULL && $directory_tid !== '') {
+        $directory_tid = (int) $directory_tid;
+      }
+    }
+    $this->configuration['directory_tid'] = $directory_tid;
+
     // Store album field values.
-    if (isset($values['step_2']['album_fields'])) {
+    if (isset($values['step_2_wrapper']['step_2']['album_fields'])) {
       if (!isset($this->configuration['album_field_values'])) {
         $this->configuration['album_field_values'] = [];
       }
       $this->configuration['album_field_values'] = array_merge(
         $this->configuration['album_field_values'],
-        $values['step_2']['album_fields']
+        $values['step_2_wrapper']['step_2']['album_fields']
       );
     }
 
     // Store media metadata (title, alt).
-    if (isset($values['step_2']['media_metadata'])) {
+    if (isset($values['step_2_wrapper']['step_2']['media_metadata'])) {
       if (!isset($this->configuration['media_metadata'])) {
         $this->configuration['media_metadata'] = [];
       }
       $this->configuration['media_metadata'] = array_merge(
         $this->configuration['media_metadata'],
-        $values['step_2']['media_metadata']
+        $values['step_2_wrapper']['step_2']['media_metadata']
       );
     }
   }
@@ -1594,11 +1562,30 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       return;
     }
 
-    // Move to directory if configured.
-    if ($this->configuration['directory_tid']) {
+    // Move to directory if configured (including ROOT which is NULL in database, 0 internally).
+    if (isset($this->configuration['directory_tid']) && $this->configuration['directory_tid'] !== NULL && $this->configuration['directory_tid'] !== '') {
+
       if ($entity->hasField('directory')) {
-        $entity->set('directory', ['target_id' => $this->configuration['directory_tid']]);
+        // Set directory field. For ROOT (0 or -1), convert to NULL for database storage.
+        if ($this->configuration['directory_tid'] == 0 || $this->configuration['directory_tid'] == -1) {
+          // ROOT directory - set as NULL in database.
+          $entity->set('directory', NULL);
+        }
+        else {
+          // Regular directory - set the target_id.
+          $entity->set('directory', $this->configuration['directory_tid']);
+        }
       }
+      else {
+        \Drupal::logger('media_drop')->warning('execute() - Media @mid does not have directory field', [
+          '@mid' => $entity->id(),
+        ]);
+      }
+    }
+    else {
+      \Drupal::logger('media_drop')->notice('execute() - No directory_tid configured (value: @val)', [
+        '@val' => var_export($this->configuration['directory_tid'], TRUE),
+      ]);
     }
 
     // Add media to album node fields.
