@@ -28,10 +28,12 @@ admin_grid:
       css/media-drop-admin-grid.css: {}
   js:
     js/media-drop-multi-select.js: {}
+    js/fix_vbo_counter.js: {}
   dependencies:
     - core/drupal
     - core/drupalSettings
     - core/once
+    - views_bulk_operations/vbo
 
 media-info:
   version: 1.x

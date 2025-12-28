@@ -15,14 +15,14 @@ use Drupal\Core\Url;
  * Adds media entities to an album node with media field values.
  *
  * @Action(
- *   id = "media_drop_add_to_album",
- *   label = @Translation("Add to album"),
+ *   id = "media_drop_move_to_album",
+ *   label = @Translation("Move to album"),
  *   type = "media",
  *   category = @Translation("Media Drop"),
  *   confirm = TRUE
  * )
  */
-class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerFactoryPluginInterface {
+class MoveMediaToAlbumAction extends ConfigurableActionBase implements ContainerFactoryPluginInterface {
 
 
   /**
@@ -198,6 +198,14 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
     $form['#attached'] = [
       'library' => [
         'core/drupal.autocomplete',
+        'core/drupal.form-states',
+      ],
+    ];
+
+    // Add states to disable submit button until album is selected.
+    $form['actions']['submit']['#states'] = [
+      'disabled' => [
+        ':input[name="step_1[album_id]"]' => ['value' => ''],
       ],
     ];
 
@@ -1334,6 +1342,120 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
   }
 
   /**
+   * Get media metadata fields (title and alt) available in the media types.
+   *
+   * Returns an array of field groups, each with:
+   * - 'type': Either 'title' or 'alt'
+   * - 'field_names': Array of actual field names where this metadata can be stored.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The album node.
+   *
+   * @return array
+   *   Array with 'title' and 'alt' keys, each containing field_names array.
+   */
+  protected function getMediaMetadataFields($node) {
+    $metadata_fields = [
+      'title' => [],
+      'alt' => [],
+      'description' => [],
+    ];
+
+    try {
+      // Find the first media reference field on the node.
+      $query = $this->entityTypeManager->getStorage('field_config')
+        ->getQuery()
+        ->condition('entity_type', 'node')
+        ->condition('bundle', $node->bundle())
+        ->condition('field_type', 'entity_reference');
+
+      $field_ids = $query->execute();
+      $media_field = NULL;
+
+      if (!empty($field_ids)) {
+        $field_configs = $this->entityTypeManager->getStorage('field_config')
+          ->loadMultiple($field_ids);
+
+        // Find the first media reference field.
+        foreach ($field_configs as $field_config) {
+          if ($field_config->getSetting('target_type') === 'media') {
+            $media_field = $field_config;
+            break;
+          }
+        }
+      }
+
+      if (!$media_field) {
+        return $metadata_fields;
+      }
+
+      // Get the media bundles this field accepts.
+      $target_bundles = $media_field->getSetting('handler_settings')['target_bundles'] ?? [];
+
+      // Determine which media bundles to load fields from.
+      $media_bundles_to_load = [];
+
+      if (!empty($target_bundles)) {
+        $media_bundles_to_load = array_keys($target_bundles);
+      }
+      else {
+        $media_bundles_to_load = $this->getMediaBundlesInNode($node);
+      }
+
+      if (empty($media_bundles_to_load)) {
+        return $metadata_fields;
+      }
+
+      // Load fields from all acceptable media bundles to find title, alt, and description fields.
+      foreach ($media_bundles_to_load as $media_bundle) {
+        $query = $this->entityTypeManager->getStorage('field_config')
+          ->getQuery()
+          ->condition('entity_type', 'media')
+          ->condition('bundle', $media_bundle);
+
+        $field_ids = $query->execute();
+
+        if (!empty($field_ids)) {
+          $field_configs = $this->entityTypeManager->getStorage('field_config')
+            ->loadMultiple($field_ids);
+
+          foreach ($field_configs as $field_config) {
+            $field_type = $field_config->getType();
+            if (($field_type === 'image' || $field_type === 'file' || $field_type === 'video_file')) {
+              $field_name = $field_config->getName();
+
+              // Title field: only on image and file fields.
+              if (($field_type === 'image' || $field_type === 'file') && !in_array($field_name, $metadata_fields['title'])) {
+                $metadata_fields['title'][] = $field_name;
+              }
+
+              // Alt field: only on image fields.
+              if ($field_type === 'image' && !in_array($field_name, $metadata_fields['alt'])) {
+                $metadata_fields['alt'][] = $field_name;
+              }
+
+              // Description field: only on video_file fields.
+              if ($field_type === 'video_file' || $field_type === 'file') {
+                if ($field_name === 'description' && !in_array($field_name, $metadata_fields['description'])) {
+                  $metadata_fields['description'][] = $field_name;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('media_drop')
+        ->warning('Error getting media metadata fields: @message', [
+          '@message' => $e->getMessage(),
+        ]);
+    }
+
+    return $metadata_fields;
+  }
+
+  /**
    * Build the album configuration form section.
    *
    * @param array $wrapper
@@ -1432,7 +1554,10 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       }
     }
 
-    // Media metadata fields (Title, Alt).
+    // Get metadata fields available for this media type.
+    $metadata_fields = $this->getMediaMetadataFields($this->albumNode);
+
+    // Media metadata fields (Title, Alt) - treated like album fields with field_names.
     $step_2['media_metadata'] = [
       '#type' => 'details',
       '#title' => $this->t('Media Metadata'),
@@ -1440,19 +1565,89 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       '#tree' => TRUE,
     ];
 
-    $step_2['media_metadata']['title'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Title'),
-      '#description' => $this->t('Set the title for all selected media.'),
-      '#default_value' => $this->configuration['media_metadata']['title'] ?? '',
-    ];
+    // Title field - only show if we found title fields in media.
+    if (!empty($metadata_fields['title'])) {
+      $title_field_names = $metadata_fields['title'];
+      $step_2['media_metadata']['title'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Title'),
+        '#open' => FALSE,
+      ];
 
-    $step_2['media_metadata']['alt'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Alt text'),
-      '#description' => $this->t('Set the alt text for all selected media.'),
-      '#default_value' => $this->configuration['media_metadata']['alt'] ?? '',
-    ];
+      $step_2['media_metadata']['title']['value'] = [
+        '#type' => 'textfield',
+        '#title' => $this->t('Title'),
+        '#description' => $this->t('Set the title for all selected media.'),
+        '#default_value' => $this->configuration['media_metadata']['title']['value'] ?? '',
+      ];
+
+      // Store the field names that contain the title.
+      $step_2['media_metadata']['title']['field_names'] = [
+        '#type' => 'value',
+        '#value' => $title_field_names,
+      ];
+
+      $field_names_display = implode(', ', $title_field_names);
+      $step_2['media_metadata']['title']['description'] = [
+        '#markup' => '<p><em>' . $this->t('This value will be applied to all selected media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
+      ];
+    }
+
+    // Alt text field - only show if we found alt fields in media.
+    if (!empty($metadata_fields['alt'])) {
+      $alt_field_names = $metadata_fields['alt'];
+      $step_2['media_metadata']['alt'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Alt text'),
+        '#open' => FALSE,
+      ];
+
+      $step_2['media_metadata']['alt']['value'] = [
+        '#type' => 'textfield',
+        '#title' => $this->t('Alt text'),
+        '#description' => $this->t('Set the alt text for all selected media.'),
+        '#default_value' => $this->configuration['media_metadata']['alt']['value'] ?? '',
+      ];
+
+      // Store the field names that contain the alt text.
+      $step_2['media_metadata']['alt']['field_names'] = [
+        '#type' => 'value',
+        '#value' => $alt_field_names,
+      ];
+
+      $field_names_display = implode(', ', $alt_field_names);
+      $step_2['media_metadata']['alt']['description'] = [
+        '#markup' => '<p><em>' . $this->t('This value will be applied to all selected media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
+      ];
+    }
+
+    // Description field - only show if we found description fields on video_file media.
+    if (!empty($metadata_fields['description'])) {
+      $description_field_names = $metadata_fields['description'];
+      $step_2['media_metadata']['description'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Description'),
+        '#open' => FALSE,
+      ];
+
+      $step_2['media_metadata']['description']['value'] = [
+        '#type' => 'textarea',
+        '#title' => $this->t('Description'),
+        '#description' => $this->t('Set the description for all selected video media.'),
+        '#default_value' => $this->configuration['media_metadata']['description']['value'] ?? '',
+      ];
+
+      // Store the field names that contain the description.
+      $step_2['media_metadata']['description']['field_names'] = [
+        '#type' => 'value',
+        '#value' => $description_field_names,
+      ];
+
+      $field_names_display = implode(', ', $description_field_names);
+      $step_2['media_metadata']['description']['description'] = [
+        '#markup' => '<p><em>' . $this->t('This value will be applied to all selected video media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
+      ];
+    }
 
     return $step_2;
   }
@@ -1525,15 +1720,21 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       );
     }
 
-    // Store media metadata (title, alt).
+    // Store media metadata (title, alt) with their field_names.
     if (isset($values['step_2_wrapper']['step_2']['media_metadata'])) {
       if (!isset($this->configuration['media_metadata'])) {
         $this->configuration['media_metadata'] = [];
       }
-      $this->configuration['media_metadata'] = array_merge(
-        $this->configuration['media_metadata'],
-        $values['step_2_wrapper']['step_2']['media_metadata']
-      );
+
+      foreach ($values['step_2_wrapper']['step_2']['media_metadata'] as $metadata_type => $metadata_data) {
+        // Only process if there's actual data (title or alt).
+        if (is_array($metadata_data) && isset($metadata_data['value'])) {
+          $this->configuration['media_metadata'][$metadata_type] = [
+            'value' => $metadata_data['value'],
+            'field_names' => $metadata_data['field_names'] ?? [],
+          ];
+        }
+      }
     }
   }
 
@@ -1759,43 +1960,36 @@ class AddMediaToAlbumAction extends ConfigurableActionBase implements ContainerF
       }
     }
 
-    // Apply media field metadata (alt, description).
-    if (isset($this->configuration['media_field_values'])) {
-      foreach ($this->configuration['media_field_values'] as $field_name => $field_meta) {
-        if (is_array($field_meta)) {
-          if (isset($field_meta['alt']) && !empty($field_meta['alt']) && $media->hasField($field_name)) {
-            $values = $media->get($field_name)->getValue();
-            if (!empty($values)) {
-              $values[0]['alt'] = $field_meta['alt'];
-              $media->set($field_name, $values);
-            }
-          }
-
-          if (isset($field_meta['description']) && !empty($field_meta['description']) && $media->hasField($field_name)) {
-            $values = $media->get($field_name)->getValue();
-            if (!empty($values)) {
-              $values[0]['description'] = $field_meta['description'];
-              $media->set($field_name, $values);
-            }
-          }
-        }
-      }
-    }
-
-    // Apply media metadata (title, alt).
+    // Apply media metadata (title, alt) with field_names resolution.
     if (isset($this->configuration['media_metadata'])) {
-      if (!empty($this->configuration['media_metadata']['title'])) {
-        $media->set('name', $this->configuration['media_metadata']['title']);
-      }
+      foreach ($this->configuration['media_metadata'] as $key => $data) {
+        if (!is_array($data) || !isset($data['value']) || !isset($data['field_names'])) {
+          // Invalid structure, skip.
+          unset($this->configuration['media_metadata'][$key]);
+        }
 
-      if (!empty($this->configuration['media_metadata']['alt'])) {
-        // Set alt text on the media name field or source field if available.
-        // For most media types, the alt is stored differently, so we'll try common fields.
-        if ($media->hasField('image') && !$media->get('image')->isEmpty()) {
-          $image_values = $media->get('image')->getValue();
-          if (!empty($image_values)) {
-            $image_values[0]['alt'] = $this->configuration['media_metadata']['alt'];
-            $media->set('image', $image_values);
+        // Apply title.
+        if (isset($this->configuration['media_metadata'][$key])) {
+          $title_data = $this->configuration['media_metadata'][$key];
+          $title_value = is_array($title_data) ? ($title_data['value'] ?? '') : $title_data;
+          $title_field_names = is_array($title_data) ? ($title_data['field_names'] ?? []) : [];
+
+          if (!empty($title_value)) {
+            // Apply to all identified title fields.
+            foreach ($title_field_names as $field_name) {
+              if ($media->hasField($field_name)) {
+                $item = $media->get($field_name)->first();
+                $item->$key = $data['value'];
+                \Drupal::logger('media_drop')->debug(
+                'Applied title "@value" to field @field on media @mid',
+                [
+                  '@value' => $title_value,
+                  '@field' => $field_name,
+                  '@mid' => $media->id(),
+                ]
+                );
+              }
+            }
           }
         }
       }
