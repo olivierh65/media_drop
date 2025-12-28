@@ -202,7 +202,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       ],
     ];
 
-    // Add states to disable submit button until album is selected.
+    // Add states to disable submit button until an album is selected.
+    // Submit button is enabled only when album_id is not empty.
     $form['actions']['submit']['#states'] = [
       'disabled' => [
         ':input[name="step_1[album_id]"]' => ['value' => ''],
@@ -606,6 +607,66 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     }
 
     return $bundles;
+  }
+
+  /**
+   * Get all media IDs already present in the album node.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The album node.
+   *
+   * @return array
+   *   Array of media IDs with their labels, indexed by media ID.
+   */
+  protected function getMediaIdsInAlbum($node) {
+    $existing_media = [];
+
+    try {
+      // Find all media reference fields on the node.
+      $query = $this->entityTypeManager->getStorage('field_config')
+        ->getQuery()
+        ->condition('entity_type', 'node')
+        ->condition('bundle', $node->bundle())
+        ->condition('field_type', 'entity_reference');
+
+      $field_ids = $query->execute();
+
+      if (!empty($field_ids)) {
+        $field_configs = $this->entityTypeManager->getStorage('field_config')
+          ->loadMultiple($field_ids);
+
+        foreach ($field_configs as $field_config) {
+          if ($field_config->getSetting('target_type') === 'media') {
+            $field_name = $field_config->getName();
+
+            if ($node->hasField($field_name)) {
+              // Get all media in this field.
+              $media_storage = $this->entityTypeManager->getStorage('media');
+              foreach ($node->get($field_name) as $item) {
+                $media_id = $item->target_id;
+                if ($media_id) {
+                  $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
+                  if ($latest_revision_id) {
+                    $media = $media_storage->loadRevision($latest_revision_id);
+                    if ($media) {
+                      $existing_media[$media_id] = $media->label();
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('media_drop')
+        ->warning('Error getting media IDs in album: @message', [
+          '@message' => $e->getMessage(),
+        ]);
+    }
+
+    return $existing_media;
   }
 
   /**
@@ -1483,13 +1544,86 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     '#access' => TRUE,
     ]; */
 
+    // Initialize step_2 array.
+    $step_2 = [];
+
     $step_2['info'] = [
       '#markup' => '<div class="messages messages--status">' .
       $this->t('Album: <strong>@album_title</strong>', ['@album_title' => $this->albumNode->label()]) .
       '</div>',
     ];
 
-    // Show media compatibility info.
+    // Hidden input to signal that step_2 is fully rendered (for form states).
+    // This input only exists when step_2 is created, so form states can use it to detect
+    // when step_2 is ready.
+    $step_2['step_2_ready_marker'] = [
+      '#type' => 'hidden',
+      '#value' => '1',
+    ];
+
+    // Show existing media in album and which ones will be added.
+    $existing_media = $this->getMediaIdsInAlbum($this->albumNode);
+    $new_media_count = 0;
+    $duplicate_count = 0;
+    $new_media_list = '';
+    $duplicate_list = '';
+
+    foreach ($this->mediaEntities as $media_id => $media) {
+      if (isset($existing_media[$media_id])) {
+        $duplicate_count++;
+        $duplicate_list .= '<li>' . $media->label() . ' (ID: ' . $media_id . ')</li>';
+      }
+      else {
+        $new_media_count++;
+        $new_media_list .= '<li>' . $media->label() . ' (ID: ' . $media_id . ')</li>';
+      }
+    }
+
+    // Show summary of media processing status.
+    $not_processed_count = $duplicate_count + count($this->getIncompatibleMedia($this->albumNode));
+    if ($not_processed_count > 0) {
+      $step_2['summary_warning'] = [
+        '#markup' => '<div class="messages messages--warning">' .
+        $this->t('<strong>⚠️ @count media will NOT be processed</strong> (expand the sections below to see details)', ['@count' => $not_processed_count]) .
+        '</div>',
+      ];
+    }
+
+    // Show media already in album (in collapsible details).
+    if (!empty($existing_media)) {
+      $existing_list = '';
+      foreach ($existing_media as $media_id => $label) {
+        $existing_list .= '<li>' . $label . ' (ID: ' . $media_id . ')</li>';
+      }
+      $step_2['existing_media'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Media already in album (@count)', ['@count' => count($existing_media)]),
+        '#open' => FALSE,
+        '#markup' => '<ul>' . $existing_list . '</ul>',
+      ];
+    }
+
+    // Show duplicates (media already in album that were selected).
+    if ($duplicate_count > 0) {
+      $step_2['duplicates'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Selected media already in album - will be skipped (@count)', ['@count' => $duplicate_count]),
+        '#open' => FALSE,
+        '#markup' => '<ul>' . $duplicate_list . '</ul>',
+      ];
+    }
+
+    // Show media that will be added (in collapsible details).
+    if ($new_media_count > 0) {
+      $step_2['new_media'] = [
+        '#type' => 'details',
+        '#title' => $this->t('✓ Media to be added to the album (@count)', ['@count' => $new_media_count]),
+        '#open' => TRUE,
+        '#markup' => '<ul>' . $new_media_list . '</ul>',
+      ];
+    }
+
+    // Show media compatibility info (in collapsible details).
     $incompatible_media = $this->getIncompatibleMedia($this->albumNode);
     if (!empty($incompatible_media)) {
       $incompatible_list = '';
@@ -1497,10 +1631,10 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
         $incompatible_list .= '<li>' . $media->label() . ' (' . $media->bundle() . ')</li>';
       }
       $step_2['incompatible_warning'] = [
-        '#markup' => '<div class="messages messages--warning">' .
-        $this->t('<strong>These media will NOT be imported:</strong>') .
-        '<ul>' . $incompatible_list . '</ul>' .
-        '</div>',
+        '#type' => 'details',
+        '#title' => $this->t('Incompatible media - will NOT be imported (@count)', ['@count' => count($incompatible_media)]),
+        '#open' => FALSE,
+        '#markup' => '<ul>' . $incompatible_list . '</ul>',
       ];
     }
 
@@ -1763,6 +1897,16 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       return;
     }
 
+    // Check if media is already in the album - skip if it is.
+    $existing_media = $this->getMediaIdsInAlbum($this->albumNode);
+    $media_id = $entity->id();
+    if (isset($existing_media[$media_id])) {
+      \Drupal::logger('media_drop')->info('Skipping media @mid - already in album', [
+        '@mid' => $media_id,
+      ]);
+      return;
+    }
+
     // Move to directory if configured (including ROOT which is NULL in database, 0 internally).
     if (isset($this->configuration['directory_tid']) && $this->configuration['directory_tid'] !== NULL && $this->configuration['directory_tid'] !== '') {
 
@@ -1882,6 +2026,58 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
+   * Find or create a taxonomy term by label.
+   *
+   * @param string $term_label
+   *   The term label to search for or create.
+   * @param string $vocabulary_id
+   *   The vocabulary ID where to search/create the term.
+   *
+   * @return int|null
+   *   The term ID if found or created, NULL otherwise.
+   */
+  protected function findOrCreateTaxonomyTerm($term_label, $vocabulary_id) {
+    if (empty($term_label) || empty($vocabulary_id)) {
+      return NULL;
+    }
+
+    try {
+      $term_storage = $this->entityTypeManager->getStorage('taxonomy_term');
+
+      // Search for existing term with this label in the vocabulary.
+      $query = $term_storage->getQuery()
+        ->condition('name', $term_label, '=')
+        ->condition('vid', $vocabulary_id)
+        ->accessCheck(FALSE);
+
+      $term_ids = $query->execute();
+
+      if (!empty($term_ids)) {
+        // Return the first matching term ID.
+        return reset($term_ids);
+      }
+
+      // Term doesn't exist, create it.
+      $new_term = $term_storage->create([
+        'name' => $term_label,
+        'vid' => $vocabulary_id,
+      ]);
+      $new_term->save();
+
+      return $new_term->id();
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('media_drop')
+        ->warning('Error finding or creating taxonomy term "@label" in vocabulary @vid: @message', [
+          '@label' => $term_label,
+          '@vid' => $vocabulary_id,
+          '@message' => $e->getMessage(),
+        ]);
+      return NULL;
+    }
+  }
+
+  /**
    * Apply field values from configuration to media entity.
    *
    * @param \Drupal\media\MediaInterface $media
@@ -1934,16 +2130,66 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
             switch ($field_type) {
               case 'entity_reference':
-                if (is_array($value_to_set) && isset($value_to_set['target_id'])) {
-                  $media->set($field_name, $value_to_set);
+                $field_definition = $media->getFieldDefinition($field_name);
+                $target_type = $field_definition->getSetting('target_type');
+
+                if ($target_type === 'taxonomy_term') {
+                  // For taxonomy terms, handle multiple input formats:
+                  // - term_id|term_label (autocomplete format)
+                  // - Just term_id (numeric)
+                  // - Just term_label (string)
+                  if (is_string($value_to_set) && !empty($value_to_set)) {
+                    // Get the first target vocabulary for this field.
+                    $handler_settings = $field_definition->getSetting('handler_settings') ?? [];
+                    $target_bundles = $handler_settings['target_bundles'] ?? [];
+
+                    if (!empty($target_bundles)) {
+                      // Use the first vocabulary if multiple are allowed.
+                      $vocabulary_id = reset(array_keys($target_bundles));
+
+                      // Check if value contains pipe (term_id|term_label format).
+                      if (strpos($value_to_set, '|') !== FALSE) {
+                        // Format: "term_id|term_label" - extract the term_id.
+                        [$term_id_str] = explode('|', $value_to_set, 2);
+                        $term_id = (int) trim($term_id_str);
+                        if ($term_id > 0) {
+                          $media->set($field_name, ['target_id' => $term_id]);
+                        }
+                      }
+                      elseif (is_numeric($value_to_set)) {
+                        // Value is just a numeric term ID.
+                        $term_id = (int) $value_to_set;
+                        if ($term_id > 0) {
+                          $media->set($field_name, ['target_id' => $term_id]);
+                        }
+                      }
+                      else {
+                        // Value is a term label - find or create it.
+                        $term_id = $this->findOrCreateTaxonomyTerm($value_to_set, $vocabulary_id);
+                        if ($term_id) {
+                          $media->set($field_name, ['target_id' => $term_id]);
+                        }
+                      }
+                    }
+                  }
+                  elseif (is_array($value_to_set) && isset($value_to_set['target_id'])) {
+                    // Already has target_id, just set it.
+                    $media->set($field_name, $value_to_set);
+                  }
                 }
                 else {
-                  // Handle "term_id|term_label" format from autocomplete.
-                  $target_id = $value_to_set;
-                  if (is_string($value_to_set) && strpos($value_to_set, '|') !== FALSE) {
-                    [$target_id] = explode('|', $value_to_set, 2);
+                  // For other entity types (nodes, etc.).
+                  if (is_array($value_to_set) && isset($value_to_set['target_id'])) {
+                    $media->set($field_name, $value_to_set);
                   }
-                  $media->set($field_name, ['target_id' => $target_id]);
+                  else {
+                    // Try to parse "entity_id|entity_label" format from autocomplete.
+                    $target_id = $value_to_set;
+                    if (is_string($value_to_set) && strpos($value_to_set, '|') !== FALSE) {
+                      [$target_id] = explode('|', $value_to_set, 2);
+                    }
+                    $media->set($field_name, ['target_id' => $target_id]);
+                  }
                 }
                 break;
 
