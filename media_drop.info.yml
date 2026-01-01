@@ -8,4 +8,6 @@ dependencies:
   - drupal:user
   - drupal:media
   - drupal:views
+  - drupal:taxonomy
+  - media_taxonomy_service
 configure: media_drop.admin_settings

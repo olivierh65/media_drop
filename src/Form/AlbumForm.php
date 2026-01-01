@@ -2,7 +2,6 @@
 
 namespace Drupal\media_drop\Form;
 
-use Drupal\taxonomy\Entity\Term;
 use Drupal\Core\Url;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -15,6 +14,7 @@ use Drupal\Core\Extension\ModuleExtensionList;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\media_drop\Service\TaxonomyService;
+use Drupal\media_taxonomy_service\Service\DirectoryService;
 
 /**
  * Form for creating/editing albums.
@@ -70,6 +70,13 @@ class AlbumForm extends FormBase {
   protected $taxonomyService;
 
   /**
+   * The directory service.
+   *
+   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   */
+  protected $directoryService;
+
+  /**
    * Constructs a new AlbumForm.
    */
   public function __construct(
@@ -80,6 +87,7 @@ class AlbumForm extends FormBase {
     RequestStack $request_stack,
     TimeInterface $time,
     TaxonomyService $taxonomy_service,
+    DirectoryService $directory_service,
   ) {
     $this->database = $database;
     $this->entityTypeManager = $entity_type_manager;
@@ -88,6 +96,7 @@ class AlbumForm extends FormBase {
     $this->requestStack = $request_stack;
     $this->time = $time;
     $this->taxonomyService = $taxonomy_service;
+    $this->directoryService = $directory_service;
   }
 
   /**
@@ -101,9 +110,20 @@ class AlbumForm extends FormBase {
       $container->get('extension.list.module'),
       $container->get('request_stack'),
       $container->get('datetime.time'),
-      $container->get('media_drop.taxonomy_service')
+      $container->get('media_drop.taxonomy_service'),
+      $container->get('media_taxonomy_service.directory_service')
     );
 
+  }
+
+  /**
+   * Get the entity type manager service.
+   *
+   * @return \Drupal\Core\Entity\EntityTypeManagerInterface
+   *   The entity type manager.
+   */
+  protected function getEntityTypeManager() {
+    return $this->entityTypeManager;
   }
 
   /**
@@ -175,71 +195,119 @@ class AlbumForm extends FormBase {
       '#tree' => TRUE,
     ];
 
-    $form['directories']['base_directory'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Storage directory'),
-      '#default_value' => $album ? $album->base_directory : 'public://media-drop/',
-      '#required' => TRUE,
-      '#maxlength' => 255,
-      '#description' => $this->t('Example: public://media-drop/birthday2025<br>Media will be saved in subfolders by user.'),
-    ];
+    // Get Media Directories vocabulary ID.
+    $vocabulary_id = $this->getMediaDirectoriesVocabulary();
 
-    $form['directories']['media_directory'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Directory in Media Browser'),
-      '#default_value' => $album ? $album->media_directory : '',
-      '#maxlength' => 255,
-      '#description' => $this->t('Optional path in the Media Browser to organize media (e.g: /albums/birthday2025).<br>Leave empty to use root.'),
-      '#access' => !$this->extensionListModule->getPath('media_directories'),
-    ];
+    // CASE 1: media_directories is ENABLED.
+    if ($vocabulary_id) {
+      // Storage scheme selection only (public/private).
+      $base_dir_value = $album ? $album->base_directory : 'public://';
+      $current_scheme = strpos($base_dir_value, 'private://') === 0 ? 'private' : 'public';
 
-    // If media_directories module is enabled, propose the taxonomy.
-    if ($this->extensionListModule->getPath('media_directories')) {
-      $vocabulary_id = $this->getMediaDirectoriesVocabulary();
+      $form['directories']['storage_scheme'] = [
+        '#type' => 'radios',
+        '#title' => $this->t('Storage location'),
+        '#options' => [
+          'public' => $this->t('Public files (public://) - visible to all users'),
+          'private' => $this->t('Private files (private://) - requires download permission'),
+        ],
+        '#default_value' => $current_scheme,
+        '#required' => TRUE,
+        '#description' => $this->t('Choose where to store the media files.'),
+      ];
 
-      if ($vocabulary_id) {
-        $terms = $this->getTermOptions($vocabulary_id);
+      // Get tree data for jstree.
+      $selected_tid = $album && !empty($album->media_directory) ? $album->media_directory : NULL;
+      $tree_data = $this->directoryService->getDirectoryTreeData($vocabulary_id, $selected_tid);
 
-        $form['directories']['media_directory_term'] = [
-          '#type' => 'select',
-          '#title' => $this->t('Media Directories'),
-          '#options' => ['' => $this->t('- Root -')] + $terms,
-          '#default_value' => $album ? $album->media_directory : '',
-          '#description' => $this->t('Select the Media Directories taxonomy term where uploaded media will be classified.<br>This taxonomy is used by the Media Directories module to organize media.'),
-        ];
+      // Hidden field to store selected term ID.
+      $form['directories']['selected_term'] = [
+        '#type' => 'hidden',
+        '#attributes' => [
+          'id' => 'media-drop-selected-term',
+        ],
+        '#default_value' => $selected_tid,
+      ];
 
-        $form['directories']['create_new_term'] = [
-          '#type' => 'details',
-          '#title' => $this->t('Create a new directory'),
-          '#open' => FALSE,
-          '#tree' => TRUE,
-        ];
+      // Title for directory tree section.
+      $form['directories']['media_directory_title'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'h3',
+        '#value' => $this->t('Directory Structure'),
+        '#attributes' => [
+          'class' => ['media-directory-title'],
+        ],
+      ];
 
-        $form['directories']['create_new_term']['new_term_name'] = [
+      // Description for directory tree section.
+      $form['directories']['media_directory_description'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $this->t('Select the base directory where the media files will be saved (username folders will be created inside). You can right-click on the tree to create new directories.'),
+        '#attributes' => [
+          'class' => ['media-directory-description', 'form-text'],
+        ],
+      ];
+
+      // Jstree container for directory selection with unified taxonomy styling.
+      $form['directories']['media_directory'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => [
+          'id' => 'media-drop-directory-tree',
+          'class' => ['taxonomy-inline-tree-container', 'storage-tree-container'],
+          'data-vocabulary-id' => $vocabulary_id,
+          'data-selected-term' => $selected_tid ?: '',
+        ],
+      ];
+
+      // Attach jstree library and custom JS from media_taxonomy_service.
+      $form['#attached']['library'][] = 'media_taxonomy_service/directory_selector';
+      $form['#attached']['library'][] = 'media_taxonomy_service/taxonomy-manager';
+
+      // Pass tree data to JavaScript via drupalSettings.
+      $form['#attached']['drupalSettings']['mediaDrop'] = [
+        'directoryTree' => $tree_data,
+        'vocabularyId' => $vocabulary_id,
+      ];
+    }
+    // CASE 2: media_directories is DISABLED.
+    else {
+      // Storage scheme selection.
+      $base_dir_value = $album ? $album->base_directory : 'public://media-drop';
+      $current_scheme = strpos($base_dir_value, 'private://') === 0 ? 'private' : 'public';
+
+      $form['directories']['storage_scheme'] = [
+        '#type' => 'radios',
+        '#title' => $this->t('Storage location'),
+        '#options' => [
+          'public' => $this->t('Public files (public://) - visible to all users'),
+          'private' => $this->t('Private files (private://) - requires download permission'),
+        ],
+        '#default_value' => $current_scheme,
+        '#required' => TRUE,
+        '#description' => $this->t('Choose where to store the media files.'),
+      ];
+
+      // Base directory path (required when media_directories is disabled).
+      $base_path_value = $album ? str_replace(['public://', 'private://'], '', $album->base_directory) : 'media-drop';
+      $form['directories']['base_directory_path'] = [
+        '#type' => 'textfield',
+        '#title' => $this->t('Base directory path'),
+        '#default_value' => $base_path_value,
+        '#required' => TRUE,
+        '#maxlength' => 255,
+        '#description' => $this->t('Example: media-drop<br>This is the base directory for all uploads. Do not include the scheme (public:// or private://).'),
+      ];
+
+      // If filefield_paths is enabled, show token field for dynamic path construction.
+      if ($this->extensionListModule->getPath('filefield_paths')) {
+        $form['directories']['filefield_paths_tokens'] = [
           '#type' => 'textfield',
-          '#title' => $this->t('Name of new directory'),
-          '#description' => $this->t('If you want to create a new directory in Media Directories, enter its name here.'),
-        ];
-
-        $form['directories']['create_new_term']['parent_term'] = [
-          '#type' => 'select',
-          '#title' => $this->t('Parent directory'),
-          '#options' => [0 => $this->t('- Root -')] + $terms,
-          '#description' => $this->t('Under which directory to create the new directory.'),
-        ];
-
-        $form['directories']['auto_create_structure'] = [
-          '#type' => 'checkbox',
-          '#title' => $this->t('Automatically create structure'),
-          '#default_value' => TRUE,
-          '#description' => $this->t('If checked, user folders and subfolders will be automatically added to the Media Directories taxonomy during uploads.'),
-        ];
-      }
-      else {
-        $form['directories']['media_directory_warning'] = [
-          '#markup' => '<div class="messages messages--warning">' .
-          $this->t('The Media Directories module is enabled but no taxonomy is configured. Please configure Media Directories first.') .
-          '</div>',
+          '#title' => $this->t('Path tokens (filefield_paths)'),
+          '#default_value' => $album ? $this->extractTokensFromPath($album->base_directory) : '',
+          '#maxlength' => 255,
+          '#description' => $this->t('Optional: Use filefield_paths tokens to create dynamic subdirectories. Example: [date:custom:Y]-[date:custom:m] or [user:name]. Leave empty to use the base path as-is.'),
         ];
       }
     }
@@ -339,34 +407,21 @@ class AlbumForm extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    $base_directory = $form_state->getValue(['directories', 'base_directory']);
+    // Validate storage scheme is always required.
+    $scheme = $form_state->getValue(['directories', 'storage_scheme']);
 
-    // Check that the directory starts with a valid scheme.
-    // @todo handle the case where $base_directory is NULL.
-    if (!empty($base_directory) && !preg_match('/^(public|private):\/\//', $base_directory)) {
-      $form_state->setErrorByName('directories][base_directory', $this->t('The directory must start with public:// or private://'));
+    if (empty($scheme)) {
+      $form_state->setErrorByName('directories][storage_scheme', $this->t('Please select a storage location.'));
     }
 
-    // If media_directories is not enabled, validate the text field.
-    if (!$this->extensionListModule->getPath('media_directories')) {
-      $media_directory = $form_state->getValue(['directories', 'media_directory']);
-      if (!empty($media_directory)) {
-        $media_directory = trim($media_directory);
-        if (substr($media_directory, 0, 1) === '/') {
-          $media_directory = substr($media_directory, 1);
-        }
-        if (substr($media_directory, -1) === '/') {
-          $media_directory = substr($media_directory, 0, -1);
-        }
-        $form_state->setValue(['directories', 'media_directory'], $media_directory);
-      }
-    }
-    else {
-      // Validate that if a new term is requested, a name is provided.
-      $new_term_name = $form_state->getValue(['directories', 'create_new_term', 'new_term_name']);
-      if (!empty($new_term_name) && empty(trim($new_term_name))) {
-        $form_state->setErrorByName('directories][create_new_term][new_term_name',
-        $this->t('The directory name cannot be empty.'));
+    $vocabulary_id = $this->getMediaDirectoriesVocabulary();
+
+    // CASE: media_directories is DISABLED.
+    if (!$vocabulary_id) {
+      $base_path = $form_state->getValue(['directories', 'base_directory_path']);
+
+      if (empty($base_path) || empty(trim($base_path))) {
+        $form_state->setErrorByName('directories][base_directory_path', $this->t('The directory path cannot be empty.'));
       }
     }
   }
@@ -375,45 +430,55 @@ class AlbumForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
+    // $album_id may be NULL for new albums.
     $album_id = $form_state->getValue('album_id');
+    $scheme = $form_state->getValue(['directories', 'storage_scheme']);
+    $vocabulary_id = $this->getMediaDirectoriesVocabulary();
 
-    // Handle creation of a new term if requested (media_directories enabled)
     $media_directory_value = '';
-    if ($this->extensionListModule->getPath('media_directories')) {
-      $new_term_name = $form_state->getValue(['directories', 'create_new_term', 'new_term_name']);
+    $auto_create_structure = 0;
 
-      if (!empty($new_term_name)) {
-        // Create the new term.
-        $vocabulary_id = $this->getMediaDirectoriesVocabulary();
-        $parent_tid = $form_state->getValue(['directories', 'create_new_term', 'parent_term']);
+    // CASE 1: media_directories is ENABLED.
+    if ($vocabulary_id) {
+      // Use the selected term from jstree (creation is done via context menu).
+      $media_directory_value = $form_state->getValue(['directories', 'selected_term']);
 
-        $term = Term::create([
-          'vid' => $vocabulary_id,
-          'name' => $new_term_name,
-          'parent' => $parent_tid ? [$parent_tid] : [],
-        ]);
-        $term->save();
+      // Build base_directory from the selected term's path hierarchy.
+      $base_directory = $scheme . '://';
 
-        $media_directory_value = $term->id();
-        $this->messenger()->addStatus($this->t('The directory "@name" has been created.', ['@name' => $new_term_name]));
-      }
-      else {
-        // Use the selected term.
-        $media_directory_value = $form_state->getValue(['directories', 'media_directory_term']);
+      if ($media_directory_value && $media_directory_value !== 0) {
+        // Load the selected term to build its path.
+        $selected_term = $this->entityTypeManager->getStorage('taxonomy_term')->load($media_directory_value);
+        if ($selected_term) {
+          // Build path from term hierarchy.
+          $term_path = $this->directoryService->buildTermPath($selected_term);
+          $base_directory .= $term_path;
+        }
       }
     }
+    // CASE 2: media_directories is DISABLED.
     else {
-      // Use the text field if media_directories is not enabled.
-      $media_directory_value = $form_state->getValue(['directories', 'media_directory']);
+      // Use base_directory_path and optional filefield_paths tokens.
+      $base_path = rtrim($form_state->getValue(['directories', 'base_directory_path']), '/');
+      $base_directory = $scheme . '://' . ltrim($base_path, '/');
+
+      // If filefield_paths is enabled, append tokens to path.
+      if ($this->extensionListModule->getPath('filefield_paths')) {
+        $tokens = $form_state->getValue(['directories', 'filefield_paths_tokens']);
+        if (!empty($tokens)) {
+          // Append tokens as a subdirectory path.
+          $base_directory .= '/' . rtrim($tokens, '/');
+        }
+      }
     }
 
     $values = [
       'name' => $form_state->getValue('name'),
-      'base_directory' => rtrim($form_state->getValue(['directories', 'base_directory']), '/'),
+      'base_directory' => $base_directory,
       'media_directory' => $media_directory_value,
       'default_media_type' => $form_state->getValue(['media_types', 'default_media_type']),
       'video_media_type' => $form_state->getValue(['media_types', 'video_media_type']),
-      'auto_create_structure' => $this->extensionListModule->getPath('media_directories') && $form_state->getValue(['directories', 'auto_create_structure']) ? 1 : 0,
+      'auto_create_structure' => $auto_create_structure,
       'enable_notifications' => $form_state->getValue(['notifications', 'enable_notifications']) ? 1 : 0,
       'notification_roles' => implode(',', array_filter($form_state->getValue(['notifications', 'notification_roles']))),
       'notification_email' => $form_state->getValue(['notifications', 'notification_email']) ?: '',
@@ -443,41 +508,7 @@ class AlbumForm extends FormBase {
         ->fields($values)
         ->execute();
 
-      // Retrieve the ID of the newly created album.
-      $new_album_id = $this->database->select('media_drop_albums', 'a')
-        ->fields('a', ['id'])
-        ->condition('token', $values['token'])
-        ->execute()
-        ->fetchField();
-
-      // Automatically create directory structure if media_directories is enabled.
-      if ($new_album_id && $this->extensionListModule->getPath('media_directories')) {
-        try {
-          // Create the parent album term.
-          $album_term_id = $this->taxonomyService->createAlbumDirectoryStructure(
-          $new_album_id,
-          $values['name']
-          );
-
-          // Update the album with the parent term ID.
-          if ($album_term_id) {
-            $this->database->update('media_drop_albums')
-              ->fields(['media_directory' => $album_term_id])
-              ->condition('id', $new_album_id)
-              ->execute();
-
-            $this->messenger()->addStatus($this->t('The album and "Directories" structure have been created automatically.'));
-          }
-        }
-        catch (\Exception $e) {
-          $this->messenger()->addWarning($this->t('The album has been created but the directory structure could not be created: @error', [
-            '@error' => $e->getMessage(),
-          ]));
-        }
-      }
-      else {
-        $this->messenger()->addStatus($this->t('The album has been created.'));
-      }
+      $this->messenger()->addStatus($this->t('The album has been created.'));
     }
 
     $form_state->setRedirect('media_drop.album_list');
@@ -552,30 +583,6 @@ class AlbumForm extends FormBase {
   }
 
   /**
-   * Get term options for a vocabulary with hierarchy.
-   */
-  protected function getTermOptions($vocabulary_id, $parent = 0, $depth = 0) {
-    $options = [];
-
-    $terms = $this->entityTypeManager
-      ->getStorage('taxonomy_term')
-      ->loadTree($vocabulary_id, $parent, 1, TRUE);
-
-    foreach ($terms as $term) {
-      $prefix = str_repeat('--', $depth);
-      $options[$term->id()] = $prefix . ' ' . $term->getName();
-
-      // Recursively get children.
-      $children = $this->getTermOptions($vocabulary_id, $term->id(), $depth + 1);
-      if (!empty($children)) {
-        $options += $children;
-      }
-    }
-
-    return $options;
-  }
-
-  /**
    * Load available roles.
    */
   protected function loadRoles() {
@@ -591,6 +598,33 @@ class AlbumForm extends FormBase {
     }
 
     return $roles;
+  }
+
+  /**
+   * Extract tokens from a stored base_directory path.
+   *
+   * Attempts to parse out filefield_paths tokens from a full path.
+   * For example: "public://media-drop/[date:custom:Y]-[date:custom:m]"
+   * would extract "[date:custom:Y]-[date:custom:m]"
+   *
+   * @param string $base_directory
+   *   The full base_directory value (with scheme).
+   *
+   * @return string
+   *   The tokens part if found, empty string otherwise.
+   */
+  protected function extractTokensFromPath($base_directory) {
+    // Remove scheme (e.g., "public://").
+    $path = preg_replace('#^[a-z]+://#i', '', $base_directory);
+
+    // Look for patterns like [something:something] or [something:something:something].
+    if (preg_match('#(\[.*?\])#', $path, $matches)) {
+      // Return everything from the first bracket onwards.
+      $start_pos = strpos($path, $matches[1]);
+      return substr($path, $start_pos);
+    }
+
+    return '';
   }
 
 }

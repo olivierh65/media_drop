@@ -623,7 +623,16 @@ class UploadController extends ControllerBase {
           $media->set($field_name, $file_entity->id());
         }
 
-        $media->save();
+        // Set context flag for media_drop upload.
+        // This is checked by hook_file_presave to prevent token replacement.
+        \Drupal::state()->set('media_drop_upload_in_progress', TRUE);
+
+        try {
+          $media->save();
+        }
+        finally {
+          \Drupal::state()->delete('media_drop_upload_in_progress');
+        }
 
         // Record the upload in the tracking table.
         $session_id = $this->getSessionId();

@@ -1,340 +1,468 @@
 # Media Drop
 
-Module Drupal 10/11 permettant aux utilisateurs de déposer des photos et vidéos en masse dans des albums organisés.
+Drupal 10/11 module allowing users to bulk upload photos and videos for easy integration into albums by moderators.
 
-## Fonctionnalités
+---
 
-- **Gestion d'albums** : Créez des albums avec des répertoires dédiés et des URL uniques
-- **Sélection des types de médias** : Choisissez quels types de médias Drupal créer pour les images et vidéos uploadées
-- **Organisation dans Media Browser** : Définissez où seront classés les médias dans le Media Browser
-- **Déplacement en masse** : Déplacez (move, pas copy) plusieurs médias vers un autre répertoire en une seule action
-- **Upload en masse** : Interface Dropzone pour déposer plusieurs fichiers simultanément
-- **Organisation personnelle** : Chaque utilisateur a son propre répertoire dans l'album
-- **Sous-dossiers** : Possibilité de créer des sous-dossiers (ex: matin, aprem, soirée)
-- **Mapping MIME automatique** : Configure les types de médias Drupal créés selon les types MIME (fallback si pas spécifié dans l'album)
-- **Gestion des permissions** : Contrôle granulaire avec 5 permissions différentes
-- **Support utilisateurs anonymes** : Les anonymes peuvent déposer en indiquant leur nom
-- **Visualisation et suppression** : Les utilisateurs voient et peuvent supprimer leurs propres médias
+**French version / Version française** : See [README_FR.md](README_FR.md)
+
+## Features
+
+### Drop Space (for users)
+
+- **Drop space creation** : Create dedicated spaces with directories and unique URLs
+- **Granular permissions** : Control possible user actions (upload, folder creation, deletion)
+- **Bulk upload (Dropzone)** : Drag & drop interface to upload multiple files simultaneously
+- **Personal organization** : Each user has their own directory in the drop space
+- **Subfolders** : Ability to create subfolders (e.g., morning, afternoon, evening) on 1 level
+- **Visualization and deletion** : Users can view and delete their own media
+- **Anonymous user support** : Anonymous users can upload by providing their name
+
+### Media Management (for moderators)
+
+- **Album management interface** : Manage albums and media from a centralized interface
+- **Bulk move** : Move (not copy) multiple media to another directory in a single action
+- **Album integration** : Move and integrate media into an existing album with :
+  - Configuration of metadata fields (title, alt, description)
+  - Assignment of values to fields for all selected media
+  - Management of taxonomy fields with automatic term creation
+- **Duplicate prevention** : Does not add the same media twice to an album
+- **Conflict management** : Automatically ignores media already present in the album
+
+### General Configuration
+
+- **Media type selection** : Choose which Drupal media types to create for uploaded images and videos
+- **Organization in Media Browser** : Define where media will be classified in the Media Browser
+- **Automatic MIME mapping** : Configures Drupal media types based on MIME types (fallback if not specified)
+- **Media Directories integration** : Optional support for organizing media in a hierarchical taxonomy
+- **Permission management** : 6 different permissions to control access and actions
 
 ## Installation
 
-1. Placez le module dans `/modules/custom/media_drop/`
-2. Activez le module : `drush en media_drop`
-3. **(Recommandé)** Installez Views Bulk Operations pour les opérations en masse :
+1. Place the module in `/modules/custom/media_drop/`
+2. Enable the module: `drush en media_drop`
+3. **(Recommended)** Install Views Bulk Operations for bulk operations:
    ```bash
    composer require drupal/views_bulk_operations
    drush en views_bulk_operations -y
    ```
-4. **(Optionnel)** Si vous utilisez le module [Media Directories](https://www.drupal.org/project/media_directories), assurez-vous qu'il est activé et configuré avant de créer vos albums
-5. Configurez les permissions dans `/admin/people/permissions`
-6. Accédez à la configuration : `/admin/config/media/media-drop`
-
-## Structure des fichiers
-
-```
-media_drop/
-├── media_drop.info.yml
-├── media_drop.permissions.yml
-├── media_drop.routing.yml
-├── media_drop.links.menu.yml          # Liens dans le menu d'administration
-├── media_drop.links.action.yml        # Boutons d'action
-├── media_drop.links.task.yml          # Onglets de navigation
-├── media_drop.install
-├── media_drop.module
-├── media_drop.libraries.yml
-├── src/
-│   ├── Controller/
-│   │   ├── AlbumController.php
-│   │   └── UploadController.php
-│   └── Form/
-│       ├── AdminSettingsForm.php
-│       ├── AlbumForm.php
-│       ├── AlbumDeleteForm.php
-│       └── MimeMappingForm.php
-├── templates/
-│   └── media-drop-upload-page.html.twig
-├── js/
-│   └── media-drop-upload.js
-├── css/
-│   └── media-drop-upload.css
-└── README.md
-```
+4. **(Optional)** If you use the [Media Directories](https://www.drupal.org/project/media_directories) module, make sure it is enabled and configured before creating your albums
+5. Configure permissions in `/admin/people/permissions`
+6. Access the configuration: `/admin/config/media/media-drop`
 
 ## Configuration
 
-### Accès à l'administration
+### Admin Access
 
-Plusieurs chemins permettent d'accéder à l'administration du module :
+Several paths allow you to access the module administration:
 
-**Via le menu d'administration :**
-- Administration > Configuration > Média > **Media Drop**
+**Via the administration menu:**
+- Administration > Configuration > Media > **Media Drop**
 
-**Chemins directs :**
-- Configuration générale : `/admin/config/media/media-drop`
-- Liste des albums : `/admin/config/media/media-drop/albums`
-- Mappings MIME : `/admin/config/media/media-drop/mime-mapping`
+**Direct paths:**
+- General configuration: `/admin/config/media/media-drop`
+- Albums list: `/admin/config/media/media-drop/albums`
+- MIME mappings: `/admin/config/media/media-drop/mime-mapping`
 
-**Navigation par onglets :**
-Une fois dans l'interface de Media Drop, vous pouvez naviguer entre les sections via les onglets :
-- Paramètres
+**Tab navigation:**
+Once in the Media Drop interface, you can navigate between sections using tabs:
+- Settings
 - Albums
-- Mappings MIME
+- MIME Types
 
 ```
-Administration > Configuration > Média
+Administration > Configuration > Media
     └── Media Drop
-        ├── [Onglet] Paramètres (/admin/config/media/media-drop)
-        │   ├── Configuration générale
-        │   └── [Bouton] Gérer les mappings MIME
+        ├── [Tab] Settings (/admin/config/media/media-drop)
+        │   ├── General configuration
+        │   └── [Button] Manage MIME mappings
         │
-        ├── [Onglet] Albums (/admin/config/media/media-drop/albums)
-        │   ├── Liste des albums
-        │   └── [Bouton] Ajouter un album
-        │       ├── Créer/Modifier un album
-        │       └── Supprimer un album
+        ├── [Tab] Albums (/admin/config/media/media-drop/albums)
+        │   ├── Albums list
+        │   └── [Button] Add album
+        │       ├── Create/Edit an album
+        │       └── Delete an album
         │
-        └── [Onglet] Mappings MIME (/admin/config/media/media-drop/mime-mapping)
-            └── Configuration des types MIME
+        └── [Tab] MIME Types (/admin/config/media/media-drop/mime-mapping)
+            └── MIME types configuration
 ```
 
-### 1. Créer un album
+### 1. Create an Album
 
-1. Allez dans **Configuration > Media > Media Drop > Albums**
-2. Cliquez sur **"Ajouter un album"**
-3. Remplissez :
-   - **Nom** : ex. "Anniversaire 2025"
+1. Go to **Configuration > Media > Media Drop > Albums**
+2. Click **"Add album"**
+3. Fill in:
+   - **Name**: e.g. "Birthday 2025"
 
-4. **Types de médias** :
-   - **Type de média pour les images** : Sélectionnez le type de média Drupal à utiliser pour les images (JPEG, PNG, etc.)
-   - **Type de média pour les vidéos** : Sélectionnez le type de média Drupal à utiliser pour les vidéos (MP4, MOV, etc.)
-   - Si vous laissez vide, le système utilisera le mapping MIME par défaut
-   - Seuls les types de médias acceptant des fichiers image/vidéo sont proposés
+4. **Media types**:
+   - **Image media type**: Select the Drupal media type to use for images (JPEG, PNG, etc.)
+   - **Video media type**: Select the Drupal media type to use for videos (MP4, MOV, etc.)
+   - If left empty, the system will use the default MIME mapping
+   - Only media types accepting image/video files are proposed
 
-5. **Répertoires** :
-   - **Répertoire de stockage** : ex. `public://media-drop/anniversaire2025` (où seront physiquement stockés les fichiers)
-   - **Répertoire dans Media Browser** :
-     - **Si Media Directories est activé** : Sélectionnez un terme de la taxonomie configurée, ou créez-en un nouveau. Les médias seront automatiquement classés dans ce répertoire virtuel.
-     - **Si Media Directories n'est pas activé** : Saisissez un chemin texte (ex: `albums/anniversaire2025`)
+5. **Directories**:
+   - **Storage directory**: e.g. `public://media-drop/birthday2025` (where files will be physically stored)
+   - **Directory in Media Browser**:
+     - **If Media Directories is enabled**: Select a taxonomy term or create a new one. Media will be automatically classified in this virtual directory.
+     - **If Media Directories is not enabled**: Enter a text path (e.g. `albums/birthday2025`)
 
-6. **Statut** : Actif
-7. Une URL unique sera générée (ex: `/media-drop/abc123xyz`)
+6. **Status**: Active
+7. A unique URL will be generated (e.g. `/media-drop/abc123xyz`)
 
-### Intégration avec Media Directories
+### Media Directories Integration
 
-Si vous avez le module [Media Directories](https://www.drupal.org/project/media_directories) activé :
+If you have the [Media Directories](https://www.drupal.org/project/media_directories) module enabled:
 
-1. Le formulaire d'album affichera automatiquement un sélecteur de termes de taxonomie
-2. Vous pouvez choisir un répertoire existant ou en créer un nouveau directement depuis le formulaire
-3. Les médias uploadés seront automatiquement assignés à ce répertoire
-4. Cela permet une organisation cohérente avec votre structure Media Directories existante
+1. The album form will automatically display a taxonomy term selector
+2. You can choose an existing directory or create a new one directly from the form
+3. Uploaded media will be automatically assigned to this directory
+4. This allows consistent organization with your existing Media Directories structure
 
-**Avantages** :
-- Organisation hiérarchique des médias
-- Filtrage facile dans le Media Browser
-- Cohérence avec votre structure de médias existante
+**Advantages**:
+- Hierarchical media organization
+- Easy filtering in Media Browser
+- Consistency with your existing media structure
 
-## Déplacement en masse des médias
+## Bulk Media Movement
 
-### Via l'interface d'administration
+### Via Admin Interface
 
-1. Allez dans **Configuration > Media > Media Drop > Gérer les médias**
-2. **Filtrez par répertoire** : Utilisez le filtre "Répertoire" pour voir uniquement les médias d'un dossier spécifique
-3. **Filtrez par nom, type, auteur** pour affiner la recherche
-4. Cochez les médias à déplacer
-5. Dans le menu déroulant "Action", sélectionnez **"Déplacer vers un répertoire"**
-6. Cliquez sur "Appliquer aux éléments sélectionnés"
-7. Choisissez le répertoire de destination
-8. Confirmez le déplacement
+1. Go to **Configuration > Media > Media Drop > Manage media**
+2. **Filter by directory**: Use the "Directory" filter to view only media in a specific folder
+3. **Filter by name, type, author** to refine your search
+4. Check the media to move
+5. In the "Action" dropdown, select **"Move to directory"**
+6. Click "Apply to selected items"
+7. Choose the destination directory
+8. Confirm the move
 
-**Note importante :** Cette action effectue un **déplacement** (move), pas une copie. Les médias changeront de répertoire.
+**Important note:** This action performs a **move** (not a copy). Media will change directory.
 
-### Création automatique de la structure de taxonomie
+### Automatic Taxonomy Structure Creation
 
-Lorsque **Media Directories est activé**, Media Drop crée automatiquement les termes de taxonomie pour :
-- **Le dossier de l'album** (si configuré)
-- **Les dossiers utilisateurs** (ex: "olivier.dupont", "marie.martin")
-- **Les sous-dossiers créés** (ex: "matin", "aprem", "soirée")
+When **Media Directories is enabled**, Media Drop automatically creates taxonomy terms for:
+- **The album folder** (if configured)
+- **User folders** (e.g. "robert.dupont", "marie.martin")
+- **Created subfolders** (e.g. "morning", "afternoon", "evening")
 
-**Exemple de hiérarchie créée :**
+**Example of created hierarchy:**
 ```
 Albums/
-└── Anniversaire 2025/           ← Terme de l'album
-    ├── olivier.dupont/          ← Créé automatiquement
-    │   ├── matin/               ← Créé automatiquement
-    │   ├── aprem/               ← Créé automatiquement
-    │   └── soiree/              ← Créé automatiquement
-    └── marie.martin/            ← Créé automatiquement
+└── Birthday 2025/           ← Album term
+    ├── robert.dupont/       ← Automatically created
+    │   ├── morning/         ← Automatically created
+    │   ├── afternoon/       ← Automatically created
+    │   └── evening/         ← Automatically created
+    └── marie.martin/        ← Automatically created
 ```
 
-**Avantages :**
-- Retrouvez facilement tous les médias d'un utilisateur
-- Naviguez par dossier dans le Media Browser
-- Utilisez le filtre "Répertoire" dans la vue de gestion
-- Structure cohérente et automatique
+**Advantages:**
+- Easily find all media from a user
+- Navigate by folder in Media Browser
+- Use the "Directory" filter in the management view
+- Consistent and automatic structure
 
-**Configuration :**
-Dans le formulaire d'album, cochez "Créer automatiquement la structure" pour activer cette fonctionnalité.
+**Configuration:**
+In the album form, check "Automatically create structure" to enable this feature.
 
-### Filtrage par répertoire
+### Directory Filtering
 
-Dans la vue de gestion, le filtre **"Répertoire"** affiche tous les dossiers de la taxonomie Media Directories avec :
-- Indentation pour visualiser la hiérarchie
-- Tous les dossiers créés automatiquement
-- Possibilité de filtrer sur un dossier spécifique
+In the management view, the **"Directory"** filter displays all folders from the Media Directories taxonomy with:
+- Indentation to visualize hierarchy
+- All automatically created folders
+- Ability to filter on a specific folder
 
 ### Via Media Directories (drag & drop)
 
-Si Media Directories est activé :
-- Le **drag & drop** effectue par défaut une **copie**
-- Utilisez l'action VBO ci-dessus pour un véritable **déplacement**
+If Media Directories is enabled:
+- **Drag & drop** performs a **copy** by default
+- Use the VBO action above for a true **move**
 
-### Actions disponibles
+### Available Actions
 
-La vue de gestion propose plusieurs actions en masse :
+The management view offers several bulk actions:
 
-1. **Déplacer vers un répertoire** (Move) : Change le répertoire du média sans copier
-2. **Éditer les médias (groupés)** : Édite plusieurs médias simultanément avec :
-   - Affichage de tous les champs configurables
-   - Regroupement des médias ayant les mêmes valeurs
-   - Résumé visuel des valeurs communes vs multiples
-   - Modification sélective champ par champ
-3. **Supprimer** : Supprime les médias sélectionnés (avec confirmation)
+1. **Move to album**: Adds selected media to an album with:
+   - Album selection in step 1
+   - Optional media field configuration in step 2
+   - Automatic value application to all selected media
+   - Taxonomy field management with automatic term creation
 
-#### Exemple d'édition groupée
+2. **Edit media (bulk)**: Edit multiple media simultaneously with:
+   - Display of all configurable fields
+   - Grouping of media with identical values
+   - Visual summary of common vs multiple values
+   - Selective field-by-field modification
 
-Lorsque vous sélectionnez 50 médias et choisissez "Éditer les médias (groupés)" :
+3. **Delete**: Delete selected media (with confirmation)
 
-**Résumé automatique :**
-- Type de média : Image (50 médias)
+#### "Move to album" Feature
 
-**Par champ :**
-- **Répertoire** : Valeurs multiples
-  - "Albums/Anniversaire/olivier.dupont/matin" : 20 médias
-  - "Albums/Anniversaire/olivier.dupont/aprem" : 30 médias
-- **Auteur** : Valeur commune : "Olivier Dupont" (50 médias)
-- **Description** : (vide) : 50 médias
+The "Move to album" action provides a two-step interface:
 
-Vous pouvez alors choisir de modifier seulement certains champs, par exemple :
-- ☑ Modifier le répertoire → Déplacer tous vers "Albums/Anniversaire/archives"
-- ☑ Modifier la description → Ajouter "Photos événement 2025"
-- ☐ Ne pas modifier l'auteur (valeur commune conservée)
+**Step 1: Album Selection**
+- Select the destination album
+- The "Apply" button activates only after album selection
+- Display of destination directory (if Media Directories is enabled)
 
-### 2. Configurer les mappings MIME
+**Step 2: Optional Configuration**
+After selecting an album, you can:
 
-1. Allez dans **Configuration > Media > Media Drop > Types MIME**
-2. Les mappings par défaut sont créés automatiquement :
-   - `image/jpeg` → type média `image`
-   - `video/mp4` → type média `video`
-   - etc.
-3. Ajoutez des mappings personnalisés si nécessaire
-4. Tous les types de médias personnalisés sont disponibles
+- **Move to directory**: Optional, choose the destination folder
+- **Media fields**: Modify media properties (e.g. keyword, category)
+- **Metadata**: Set title, alt text, description
 
-### 3. Configurer les permissions
+**Example:**
+```
+Select an album: Birthday 2025
+Directory: Albums/Birthday/archives
+Media fields:
+  - Keyword: "2025"
+  - Category: "Private event"
+Metadata:
+  - Title: "Festivities"
+  - Alt: "Birthday photos"
+```
 
-Allez dans **Personnes > Permissions** et configurez :
+**Taxonomy field management**:
+- Category, keyword, tag fields support multiple input formats:
+  - Autocomplete format: `123|Term name`
+  - Numeric ID only: `123`
+  - Text label: `New term`
+- If the term doesn't exist, it is created automatically in the appropriate vocabulary
+- New terms receive necessary permissions
 
-- **Administrer Media Drop** : Gérer albums et configuration (admin uniquement)
-- **Déposer des médias dans les albums** : Permettre l'upload
-- **Voir ses propres médias** : Voir les médias déposés
-- **Supprimer ses propres médias** : Supprimer ses médias
-- **Créer des sous-dossiers dans les albums** : Organiser en sous-dossiers
+#### Bulk Edit Example
 
-## Utilisation
+When you select 50 media and choose the edit action:
 
-### Pour l'administrateur
+**Automatic summary:**
+- Media type: Image (50 media)
 
-1. Créez un album
-2. Copiez l'URL générée (ex: `https://monsite.com/media-drop/abc123xyz`)
-3. Partagez cette URL avec les participants
-4. Les fichiers seront organisés dans : `[répertoire_base]/[nom_utilisateur]/[sous-dossier]/fichier.jpg`
+**Per field:**
+- **Directory**: Multiple values
+  - "Albums/Birthday/robert.dupont/morning": 20 media
+  - "Albums/Birthday/robert.dupont/afternoon": 30 media
+- **Author**: Common value: "Olivier Dupont" (50 media)
+- **Description**: (empty): 50 media
 
-### Pour l'utilisateur
+You can then choose to modify only certain fields, for example:
+- ☑ Modify directory → Move all to "Albums/Birthday/archives"
+- ☑ Modify description → Add "2025 event photos"
+- ☐ Do not modify author (common value retained)
 
-1. Accédez à l'URL de l'album
-2. Indiquez votre nom (obligatoire pour les anonymes)
-3. Optionnel : Créez un sous-dossier (ex: "matin", "aprem", "soirée")
-4. Glissez-déposez vos photos/vidéos ou cliquez pour sélectionner
-5. Les fichiers sont uploadés automatiquement
-6. Visualisez vos médias déposés en bas de page
-7. Supprimez un média si nécessaire
+## Advanced Media Management
 
-## Exemple d'organisation des fichiers
+### Bulk editing with "Move to album" action
+
+The "Move to album" action available in bulk operations allows you to add media to an album and configure their properties in two steps:
+
+**Step 1 - Album Selection**
+- Select the destination album
+- The "Apply" button is disabled until an album is selected
+- Automatic validation of media type compatibility
+
+**Step 2 - Configuration (optional)**
+Once the album is selected, configure:
+
+1. **Destination directory**
+   - Selection from existing directories
+   - Folder hierarchy display
+   - Currently used directories are marked with a star (★)
+
+2. **Media fields**
+   - Modify business properties (category, keyword, tag, etc.)
+   - Fields are grouped by media type
+   - Taxonomy fields support automatic term creation
+
+3. **Metadata**
+   - Title: Applied to title fields of images and files
+   - Alt: Applied to image alt text
+   - Description: Applied to videos and files
+
+### Supported Formats for Taxonomy Fields
+
+When modifying taxonomy fields (category, keyword, etc.), three formats are accepted:
+
+| Format | Example | Behavior |
+|--------|---------|----------|
+| **Autocomplete** | `123\|My term` | Extracts the ID (123) and uses it directly |
+| **Numeric ID** | `123` | Uses the existing term ID |
+| **Text label** | `My new term` | Searches for existing term or creates it automatically |
+
+**Usage examples:**
+
+```
+"Category" field (taxonomy):
+- Enter "456|Important event" → Applies term ID 456
+- Enter "789" → Applies term ID 789
+- Enter "New category" → Creates or retrieves the term "New category"
+```
+
+**Automatic term creation**
+
+When you enter a text label and the term doesn't exist:
+- The term is created in the appropriate vocabulary
+- The term is automatically assigned to media
+- Access permissions are configured correctly
+
+**Advantages**
+- Maximum flexibility: ID, autocomplete or simple label
+- No risk of duplication: search before creation
+- Time saving: no need to pre-create all terms
+- Consistency: created terms respect the taxonomy structure
+
+## Advanced Configuration
+
+### Editing Editable Fields
+
+Editable fields in bulk are automatically detected:
+- Custom fields (excluding image, file, video)
+- Taxonomy fields
+- Entity reference fields
+- Exclude EXIF fields
+
+To modify the list, edit the configuration in the album form.
+
+### Multiple Vocabularies Management
+
+If a taxonomy field targets multiple vocabularies:
+- The first vocabulary is used by default for term creation
+- You can specify the vocabulary using the format `vocab_id:term_label`
+
+## Permissions Configuration
+
+Go to **People > Permissions** and configure:
+
+- **Administer Media Drop**: Manage albums and configuration (admin only)
+- **Upload media to albums**: Allow uploads
+- **View own media**: View uploaded media
+- **Delete own media**: Delete their own media
+- **Create subfolders in albums**: Organize into subfolders
+
+## Usage
+
+### For the Administrator
+
+1. Create an album
+2. Copy the generated URL (e.g. `https://mysite.com/media-drop/abc123xyz`)
+3. Share this URL with participants
+4. Files will be organized in: `[base_directory]/[username]/[subfolder]/file.jpg`
+
+### For the User
+
+1. Access the album URL
+2. Enter your name (mandatory for anonymous users)
+3. Optional: Create a subfolder (e.g. "morning", "afternoon", "evening")
+4. Drag & drop your photos/videos or click to select
+5. Files are uploaded automatically
+6. View your uploaded media at the bottom of the page
+7. Delete a media if necessary
+
+## File Organization Example
 
 ```
 public://media-drop/
-└── anniversaire2025/
-    ├── olivier.dupont/
-    │   ├── matin/
+└── birthday2025/
+    ├── robert.dupont/
+    │   ├── morning/
     │   │   ├── photo1.jpg
     │   │   └── photo2.jpg
-    │   ├── aprem/
+    │   ├── afternoon/
     │   │   └── video1.mp4
-    │   └── soiree/
+    │   └── evening/
     │       └── photo3.jpg
     └── marie.martin/
         ├── photo4.jpg
         └── photo5.jpg
 ```
 
-## Base de données
+## Database
 
-Le module crée 3 tables :
+The module creates 3 tables:
 
-- **media_drop_albums** : Liste des albums
-- **media_drop_mime_mapping** : Mappings MIME → type média
-- **media_drop_uploads** : Suivi des uploads par utilisateur/session
+- **media_drop_albums**: List of albums
+- **media_drop_mime_mapping**: MIME mappings → media type
+- **media_drop_uploads**: Upload tracking per user/session
 
-## Sécurité
+## Security
 
-- Les utilisateurs anonymes doivent indiquer leur nom
-- Chaque utilisateur ne peut voir/supprimer que ses propres médias
-- Les sessions anonymes sont trackées pour isolation
-- Les tokens d'albums sont générés de manière sécurisée
-- Les noms de fichiers et dossiers sont nettoyés
+- Anonymous users must provide their name
+- Each user can only view/delete their own media
+- Anonymous sessions are tracked for isolation
+- Album tokens are generated securely
+- File and folder names are sanitized
 
-## Personnalisation
+## Customization
 
-### Modifier les styles CSS
+### Modify CSS Styles
 
-Éditez `/css/media-drop-upload.css` pour personnaliser l'apparence.
+Edit `/css/media-drop-upload.css` to customize the appearance.
 
-### Modifier le comportement JavaScript
+### Modify JavaScript Behavior
 
-Éditez `/js/media-drop-upload.js` pour personnaliser l'interface.
+Edit `/js/media-drop-upload.js` to customize the interface.
 
-### Ajouter des types de médias personnalisés
+### Add Custom Media Types
 
-1. Créez votre type de média dans Drupal
-2. Ajoutez le mapping MIME dans **Configuration > Media Drop > Types MIME**
+1. Create your media type in Drupal
+2. Add the MIME mapping in **Configuration > Media Drop > MIME Types**
 
-## Dépannage
+## Troubleshooting
 
-### Les fichiers ne s'uploadent pas
+### Files don't upload
 
-- Vérifiez les permissions du répertoire
-- Vérifiez que le type MIME est mappé
-- Vérifiez les permissions utilisateur
-- Consultez les logs Drupal
+- Check directory permissions
+- Verify the MIME type is mapped
+- Check user permissions
+- Consult Drupal logs
 
-### Les miniatures ne s'affichent pas
+### Thumbnails don't display
 
-- Vérifiez que le type de média a un champ thumbnail configuré
-- Vérifiez les permissions de lecture des fichiers
+- Verify the media type has a thumbnail field configured
+- Check file read permissions
 
-### L'URL ne fonctionne pas
+### URL doesn't work
 
-- Vérifiez que l'album est actif
-- Vérifiez que le token est correct
-- Videz le cache Drupal
+- Verify the album is active
+- Verify the token is correct
+- Clear the Drupal cache
 
-## Support et contribution
+## Changelog
 
-Pour signaler un bug ou proposer une amélioration, contactez l'équipe de développement.
+### Current Version
 
-## Licence
+**Recent improvements:**
+
+- ✨ **"Move to album" action**: Two-step interface to add media to an album with optional configuration
+- 🏷️ **Automatic term creation**: Taxonomy fields automatically create non-existent terms
+- 🔄 **Multiple formats accepted**: Support for `id|label` format (autocomplete), numeric ID only, and text label for taxonomies
+- 📋 **Editable metadata**: Title, alt, description can be applied to all selected media
+- 🎯 **Grouped media fields**: Fields are intelligently grouped by type and designation
+- ⭐ **Visual indicators**: Used directories marked with a star in the selection
+- ⚠️ **Warning messages**: Detailed summaries of processed vs non-processed media
+- ✓ **Compatibility validation**: Automatic validation of media type compatibility with album
+
+**Bug fixes:**
+
+- Correct handling of `term_id|term_label` autocomplete format for taxonomy fields
+- Form state correctly managed (Apply button inactive until album selection)
+- Support for vocabularies with bundle restrictions
+- Handling of duplicate media (already in album)
+
+**Technical improvements:**
+
+- `findOrCreateTaxonomyTerm()` method for unified taxonomy term management
+- `applyFieldValuesToMedia()` method for configuration value application
+- Automatic detection of editable fields by media type
+- Field grouping by designation (type + label + vocabulary)
+- Detailed logging for debugging and auditing
+
+## License
 
 GPL-2.0+
 
-## Auteur
+## Author
 
-Développé pour Drupal 10/11
+Developed for Drupal 10/11
+
