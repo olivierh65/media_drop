@@ -175,4 +175,116 @@ class AlbumController extends ControllerBase {
     return implode('<br>', $types);
   }
 
+  /**
+   * AJAX callback to check if a media type has filefield_paths enabled.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request object.
+   *
+   * @return \Drupal\Core\Ajax\AjaxResponse
+   *   The AJAX response.
+   */
+  public function checkFileFieldPathsAjax(Request $request) {
+    $response = new AjaxResponse();
+    $media_type_id = $request->request->get('media_type_id');
+    $field_type = $request->request->get('field_type');
+
+    if (!$media_type_id || !$field_type) {
+      return $response;
+    }
+
+    $has_filefield_paths = $this->hasFileFieldPathsEnabled($media_type_id);
+
+    // Build the HTML for the warning and checkbox if needed.
+    $warning_html = '';
+    $checkbox_html = '';
+
+    if ($has_filefield_paths) {
+      $warning_html = '<div class="messages messages--warning">' .
+        $this->t('The selected media type has filefield_paths enabled, which will manage file paths automatically. Directory selection below will be ignored.') .
+        '</div>';
+
+      $checkbox_html = '<div class="form-item"><label><input type="checkbox" name="media_types[disable_filefield_paths_' . $field_type . ']" class="disable-filefield-paths" data-field-type="' . $field_type . '"> ' .
+        $this->t('Disable filefield_paths for this media type') .
+        '</label><div class="description">' .
+        $this->t('Uncheck filefield_paths on the media field to allow manual directory selection.') .
+        '</div></div>';
+    }
+
+    // Return the HTML to update.
+    $response->addCommand(new HtmlCommand(
+      '#media-types-' . $field_type . '-warning',
+      $warning_html
+    ));
+
+    $response->addCommand(new HtmlCommand(
+      '#media-types-' . $field_type . '-checkbox',
+      $checkbox_html
+    ));
+
+    // Check if any media type still has filefield_paths enabled.
+    $image_type = $request->request->get('image_type');
+    $video_type = $request->request->get('video_type');
+
+    $image_has_ffp = $image_type ? $this->hasFileFieldPathsEnabled($image_type) : FALSE;
+    $video_has_ffp = $video_type ? $this->hasFileFieldPathsEnabled($video_type) : FALSE;
+
+    $directories_html = '';
+
+    if ($image_has_ffp || $video_has_ffp) {
+      $directories_html = '<div class="messages messages--warning">' .
+        '<strong>' . $this->t('Directory selection disabled:') . '</strong> ' .
+        $this->t('One or more selected media types have filefield_paths enabled. File paths are managed automatically by filefield_paths configuration. To enable manual directory selection, disable filefield_paths on those media types above.') .
+        '</div>';
+    }
+
+    $response->addCommand(new HtmlCommand(
+      '#media-drop-directories-warning',
+      $directories_html
+    ));
+
+    return $response;
+  }
+
+  /**
+   * Check if a media type has filefield_paths enabled on its file field.
+   *
+   * @param string $media_type_id
+   *   The media type ID.
+   *
+   * @return bool
+   *   TRUE if filefield_paths is enabled.
+   */
+  protected function hasFileFieldPathsEnabled($media_type_id) {
+    if (empty($media_type_id)) {
+      return FALSE;
+    }
+
+    $media_type = $this->entityTypeManager->getStorage('media_type')->load($media_type_id);
+    if (!$media_type) {
+      return FALSE;
+    }
+
+    $source_field = $media_type->getSource()->getConfiguration()['source_field'] ?? NULL;
+    if (!$source_field) {
+      return FALSE;
+    }
+
+    $field_configs = $this->entityTypeManager->getStorage('field_config')
+      ->loadByProperties([
+        'entity_type' => 'media',
+        'bundle' => $media_type_id,
+        'field_name' => $source_field,
+      ]);
+
+    foreach ($field_configs as $field_config) {
+      $settings = $field_config->getThirdPartySettings('filefield_paths');
+      if (!empty($settings) && !empty($settings['enabled'])) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
 }

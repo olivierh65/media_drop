@@ -6,6 +6,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\File\FileExists;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Drupal\file\FileRepositoryInterface;
@@ -157,7 +158,7 @@ class UploadController extends ControllerBase {
       $container->get('module_handler'),
       $container->get('media_drop.taxonomy_service'),
       $container->get('media_drop.notification_service'),
-      $container->get('logger.factory')->get('media_drop')
+      $container->get('logger.factory')->get('media_drop'),
     );
   }
 
@@ -566,8 +567,8 @@ class UploadController extends ControllerBase {
         $file_entity = $this->fileRepository->writeData(
           $data,
           $destination_uri,
-          FileSystemInterface::EXISTS_RENAME
-        );
+          FileExists::Replace,
+                );
 
         if (!$file_entity) {
           $this->logger->error('Failed to save file to destination: @dest', ['@dest' => $destination_uri]);
@@ -623,16 +624,7 @@ class UploadController extends ControllerBase {
           $media->set($field_name, $file_entity->id());
         }
 
-        // Set context flag for media_drop upload.
-        // This is checked by hook_file_presave to prevent token replacement.
-        \Drupal::state()->set('media_drop_upload_in_progress', TRUE);
-
-        try {
-          $media->save();
-        }
-        finally {
-          \Drupal::state()->delete('media_drop_upload_in_progress');
-        }
+        $media->save();
 
         // Record the upload in the tracking table.
         $session_id = $this->getSessionId();

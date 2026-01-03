@@ -8,6 +8,9 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
+use Drupal\Core\Render\RendererInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Extension\ModuleExtensionList;
@@ -15,6 +18,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\media_drop\Service\TaxonomyService;
 use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 
 /**
  * Form for creating/editing albums.
@@ -77,6 +81,20 @@ class AlbumForm extends FormBase {
   protected $directoryService;
 
   /**
+   * The module handler.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
+   * The renderer service.
+   *
+   * @var \Drupal\Core\Render\RendererInterface
+   */
+  protected $renderer;
+
+  /**
    * Constructs a new AlbumForm.
    */
   public function __construct(
@@ -88,6 +106,8 @@ class AlbumForm extends FormBase {
     TimeInterface $time,
     TaxonomyService $taxonomy_service,
     DirectoryService $directory_service,
+    ModuleHandlerInterface $module_handler,
+    RendererInterface $renderer,
   ) {
     $this->database = $database;
     $this->entityTypeManager = $entity_type_manager;
@@ -97,6 +117,8 @@ class AlbumForm extends FormBase {
     $this->time = $time;
     $this->taxonomyService = $taxonomy_service;
     $this->directoryService = $directory_service;
+    $this->moduleHandler = $module_handler;
+    $this->renderer = $renderer;
   }
 
   /**
@@ -104,14 +126,16 @@ class AlbumForm extends FormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('database'),
-      $container->get('entity_type.manager'),
-      $container->get('config.factory'),
-      $container->get('extension.list.module'),
-      $container->get('request_stack'),
-      $container->get('datetime.time'),
-      $container->get('media_drop.taxonomy_service'),
-      $container->get('media_taxonomy_service.directory_service')
+    $container->get('database'),
+    $container->get('entity_type.manager'),
+    $container->get('config.factory'),
+    $container->get('extension.list.module'),
+    $container->get('request_stack'),
+    $container->get('datetime.time'),
+    $container->get('media_drop.taxonomy_service'),
+    $container->get('media_taxonomy_service.directory_service'),
+    $container->get('module_handler'),
+    $container->get('renderer')
     );
 
   }
@@ -171,6 +195,7 @@ class AlbumForm extends FormBase {
       '#title' => $this->t('Media types'),
       '#description' => $this->t('Select the media types to create for uploaded files. If not specified, the system will use the default MIME mapping.'),
       '#tree' => TRUE,
+      '#attributes' => ['id' => 'media-drop-album-form'],
     ];
 
     $form['media_types']['default_media_type'] = [
@@ -179,6 +204,52 @@ class AlbumForm extends FormBase {
       '#options' => ['' => $this->t('- Use default MIME mapping -')] + $image_media_types,
       '#default_value' => $album ? $album->default_media_type : '',
       '#description' => $this->t('Drupal media type that will be created for image files (JPEG, PNG, etc.)'),
+      '#media_type_context' => 'default',
+      '#ajax' => [
+        'callback' => [$this, 'ajaxUpdateFileFieldPathsWarning'],
+        'wrapper' => 'media-types-default-wrapper',
+        'event' => 'change',
+      ],
+    ];
+
+    // Container for warning, checkbox and video select (updated via AJAX).
+    $form['media_types']['default_wrapper'] = [
+      '#type' => 'container',
+      '#attributes' => ['id' => 'media-types-default-wrapper'],
+    ];
+
+    // Check if selected image media type has filefield_paths enabled.
+    $selected_image_type =
+    $form_state->getValue(['media_types', 'default_media_type'])
+    ?? ($album ? $album->default_media_type : '');
+
+    $form['media_types']['default_wrapper']['warning_container'] = [
+      '#type' => 'container',
+      '#access' => ($selected_image_type && $this->hasFileFieldPathsEnabled($selected_image_type)),
+      '#states' => [
+        'visible' => [
+          ':input[name="media_types[default_wrapper][disable_filefield_paths_default]"]' => ['checked' => FALSE],
+        ],
+      ],
+    ];
+
+    $form['media_types']['default_wrapper']['warning_container']['default_media_type_warning'] = [
+      '#type' => 'markup',
+      '#markup' => '<div class="messages messages--warning">' . $this->t('The selected media type has filefield_paths enabled, which will manage file paths automatically. Directory selection below will be ignored.') . '</div>',
+    ];
+    $form['media_types']['default_wrapper']['disable_filefield_paths_default'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Disable filefield_paths for this media type'),
+      '#description' => $this->t('Uncheck filefield_paths on the media field to allow manual directory selection.'),
+      '#default_value' => FALSE,
+      '#access' => ($selected_image_type && $this->hasFileFieldPathsEnabled($selected_image_type)),
+      '#media_type_context' => 'default',
+      '#ajax' => [
+        'callback' => [$this, 'ajaxDisableFileFieldPaths'],
+        'wrapper' => 'media-types-default-wrapper',
+        'effect' => 'fade',
+        'event' => 'change',
+      ],
     ];
 
     $form['media_types']['video_media_type'] = [
@@ -187,41 +258,100 @@ class AlbumForm extends FormBase {
       '#options' => ['' => $this->t('- Use default MIME mapping -')] + $video_media_types,
       '#default_value' => $album ? $album->video_media_type : '',
       '#description' => $this->t('Drupal media type that will be created for video files (MP4, MOV, etc.)'),
+      '#media_type_context' => 'video',
+      '#ajax' => [
+        'callback' => [$this, 'ajaxUpdateFileFieldPathsWarning'],
+        'wrapper' => 'media-types-video-wrapper',
+        'event' => 'change',
+      ],
+    ];
+
+    // Container for warning and checkbox (updated via AJAX).
+    $form['media_types']['video_wrapper'] = [
+      '#type' => 'container',
+      '#attributes' => ['id' => 'media-types-video-wrapper'],
+    ];
+
+    // Check if selected video media type has filefield_paths enabled.
+    $selected_video_type =
+    $form_state->getValue(['media_types', 'video_media_type'])
+    ?? ($album ? $album->video_media_type : '');
+
+    $form['media_types']['video_wrapper']['warning_container'] = [
+      '#type' => 'container',
+      '#access' => ($selected_video_type && $this->hasFileFieldPathsEnabled($selected_video_type)),
+      '#states' => [
+        'visible' => [
+          ':input[name="media_types[video_wrapper][disable_filefield_paths_video]"]' => ['checked' => FALSE],
+        ],
+      ],
+    ];
+
+    $form['media_types']['video_wrapper']['warning_container']['video_media_type_warning'] = [
+      '#type' => 'markup',
+      '#markup' => '<div class="messages messages--warning">' . $this->t('The selected media type has filefield_paths enabled, which will manage file paths automatically. Directory selection below will be ignored.') . '</div>',
+    ];
+    $form['media_types']['video_wrapper']['disable_filefield_paths_video'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Disable filefield_paths for this media type'),
+      '#description' => $this->t('Uncheck filefield_paths on the media field to allow manual directory selection.'),
+      '#default_value' => FALSE,
+      '#access' => ($selected_video_type && $this->hasFileFieldPathsEnabled($selected_video_type)),
+      '#media_type_context' => 'video',
+      '#ajax' => [
+        'callback' => [$this, 'ajaxDisableFileFieldPaths'],
+        'wrapper' => 'media-types-video-wrapper',
+        'effect' => 'fade',
+        'event' => 'change',
+      ],
     ];
 
     $form['directories'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Directories'),
       '#tree' => TRUE,
+      '#attributes' => ['id' => 'media-drop-directories'],
     ];
+
+    // Container for directories content (updated via AJAX).
+    $form['directories']['content'] = $this->buildDirectoriesContent($form_state, $album);
 
     // Get Media Directories vocabulary ID.
     $vocabulary_id = $this->getMediaDirectoriesVocabulary();
 
+    // Storage scheme selection only (public/private).
+    $base_dir_value = $album ? $album->base_directory : 'public://';
+    $current_scheme = strpos($base_dir_value, 'private://') === 0 ? 'private' : 'public';
+
+    $form['directories']['storage_scheme'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Storage location'),
+      '#options' => [
+        'public' => $this->t('Public files (public://) - visible to all users'),
+        'private' => $this->t('Private files (private://) - requires download permission'),
+      ],
+      '#default_value' => $current_scheme,
+      '#required' => TRUE,
+      '#description' => $this->t('Choose where to store the media files.'),
+    ];
+
     // CASE 1: media_directories is ENABLED.
     if ($vocabulary_id) {
-      // Storage scheme selection only (public/private).
-      $base_dir_value = $album ? $album->base_directory : 'public://';
-      $current_scheme = strpos($base_dir_value, 'private://') === 0 ? 'private' : 'public';
-
-      $form['directories']['storage_scheme'] = [
-        '#type' => 'radios',
-        '#title' => $this->t('Storage location'),
-        '#options' => [
-          'public' => $this->t('Public files (public://) - visible to all users'),
-          'private' => $this->t('Private files (private://) - requires download permission'),
-        ],
-        '#default_value' => $current_scheme,
-        '#required' => TRUE,
-        '#description' => $this->t('Choose where to store the media files.'),
-      ];
-
       // Get tree data for jstree.
       $selected_tid = $album && !empty($album->media_directory) ? $album->media_directory : NULL;
       $tree_data = $this->directoryService->getDirectoryTreeData($vocabulary_id, $selected_tid);
 
+      // Container for jstree directory selector.
+      $form['directories']['jstree_wrapper'] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'id' => 'media-drop-jstree-wrapper',
+          'style' => $this->bothHaveFFP($form_state, $album) ? 'display:none;' : '',
+        ],
+      ];
+
       // Hidden field to store selected term ID.
-      $form['directories']['selected_term'] = [
+      $form['directories']['jstree_wrapper']['selected_term'] = [
         '#type' => 'hidden',
         '#attributes' => [
           'id' => 'media-drop-selected-term',
@@ -230,7 +360,7 @@ class AlbumForm extends FormBase {
       ];
 
       // Title for directory tree section.
-      $form['directories']['media_directory_title'] = [
+      $form['directories']['jstree_wrapper']['media_directory_title'] = [
         '#type' => 'html_tag',
         '#tag' => 'h3',
         '#value' => $this->t('Directory Structure'),
@@ -240,7 +370,7 @@ class AlbumForm extends FormBase {
       ];
 
       // Description for directory tree section.
-      $form['directories']['media_directory_description'] = [
+      $form['directories']['jstree_wrapper']['media_directory_description'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#value' => $this->t('Select the base directory where the media files will be saved (username folders will be created inside). You can right-click on the tree to create new directories.'),
@@ -250,7 +380,7 @@ class AlbumForm extends FormBase {
       ];
 
       // Jstree container for directory selection with unified taxonomy styling.
-      $form['directories']['media_directory'] = [
+      $form['directories']['jstree_wrapper']['media_directory'] = [
         '#type' => 'html_tag',
         '#tag' => 'div',
         '#attributes' => [
@@ -261,34 +391,14 @@ class AlbumForm extends FormBase {
         ],
       ];
 
-      // Attach jstree library and custom JS from media_taxonomy_service.
-      $form['#attached']['library'][] = 'media_taxonomy_service/directory_selector';
-      $form['#attached']['library'][] = 'media_taxonomy_service/taxonomy-manager';
-
       // Pass tree data to JavaScript via drupalSettings.
-      $form['#attached']['drupalSettings']['mediaDrop'] = [
+      $form['directories']['jstree_wrapper']['#attached']['drupalSettings']['mediaDrop'] = [
         'directoryTree' => $tree_data,
         'vocabularyId' => $vocabulary_id,
       ];
     }
     // CASE 2: media_directories is DISABLED.
     else {
-      // Storage scheme selection.
-      $base_dir_value = $album ? $album->base_directory : 'public://media-drop';
-      $current_scheme = strpos($base_dir_value, 'private://') === 0 ? 'private' : 'public';
-
-      $form['directories']['storage_scheme'] = [
-        '#type' => 'radios',
-        '#title' => $this->t('Storage location'),
-        '#options' => [
-          'public' => $this->t('Public files (public://) - visible to all users'),
-          'private' => $this->t('Private files (private://) - requires download permission'),
-        ],
-        '#default_value' => $current_scheme,
-        '#required' => TRUE,
-        '#description' => $this->t('Choose where to store the media files.'),
-      ];
-
       // Base directory path (required when media_directories is disabled).
       $base_path_value = $album ? str_replace(['public://', 'private://'], '', $album->base_directory) : 'media-drop';
       $form['directories']['base_directory_path'] = [
@@ -298,6 +408,15 @@ class AlbumForm extends FormBase {
         '#required' => TRUE,
         '#maxlength' => 255,
         '#description' => $this->t('Example: media-drop<br>This is the base directory for all uploads. Do not include the scheme (public:// or private://).'),
+      ];
+
+      // Container for jstree directory selector.
+      $form['directories']['jstree_wrapper'] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'id' => 'media-drop-jstree-wrapper',
+          'style' => 'display:none;',
+        ],
       ];
 
       // If filefield_paths is enabled, show token field for dynamic path construction.
@@ -400,6 +519,10 @@ class AlbumForm extends FormBase {
       '#attributes' => ['class' => ['button']],
     ];
 
+    // Attach jstree library and custom JS from media_taxonomy_service.
+    $form['#attached']['library'][] = 'media_taxonomy_service/directory_selector';
+    $form['#attached']['library'][] = 'media_taxonomy_service/taxonomy-manager';
+
     return $form;
   }
 
@@ -441,7 +564,7 @@ class AlbumForm extends FormBase {
     // CASE 1: media_directories is ENABLED.
     if ($vocabulary_id) {
       // Use the selected term from jstree (creation is done via context menu).
-      $media_directory_value = $form_state->getValue(['directories', 'selected_term']);
+      $media_directory_value = $form_state->getValue(['directories', 'jstree_wrapper', 'selected_term']);
 
       // Build base_directory from the selected term's path hierarchy.
       $base_directory = $scheme . '://';
@@ -485,6 +608,9 @@ class AlbumForm extends FormBase {
       'status' => $form_state->getValue('status') ? 1 : 0,
       'updated' => $this->time->getRequestTime(),
     ];
+
+    // Check if checkboxes are checked and disable filefield_paths if needed.
+    $this->disableFileFieldPathsIfNeeded($form_state);
 
     if ($album_id) {
       // Update.
@@ -573,6 +699,50 @@ class AlbumForm extends FormBase {
   }
 
   /**
+   * Check if a media type has filefield_paths enabled on its file field.
+   *
+   * @param string $media_type_id
+   *   The media type ID.
+   *
+   * @return bool
+   *   TRUE if filefield_paths is enabled on the media type's file field.
+   */
+  protected function hasFileFieldPathsEnabled($media_type_id) {
+    if (empty($media_type_id)) {
+      return FALSE;
+    }
+
+    // Get the media type.
+    $media_type = $this->entityTypeManager->getStorage('media_type')->load($media_type_id);
+    if (!$media_type) {
+      return FALSE;
+    }
+
+    // Get the source field name for this media type.
+    $source_field = $media_type->getSource()->getConfiguration()['source_field'] ?? NULL;
+    if (!$source_field) {
+      return FALSE;
+    }
+
+    // Find the field config for this media type and field.
+    $field_configs = $this->entityTypeManager->getStorage('field_config')
+      ->loadByProperties([
+        'entity_type' => 'media',
+        'bundle' => $media_type_id,
+        'field_name' => $source_field,
+      ]);
+
+    foreach ($field_configs as $field_config) {
+      $settings = $field_config->getThirdPartySettings('filefield_paths');
+      if (!empty($settings) && !empty($settings['enabled'])) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
    * Get Media Directories taxonomy ID.
    */
   protected function getMediaDirectoriesVocabulary() {
@@ -625,6 +795,282 @@ class AlbumForm extends FormBase {
     }
 
     return '';
+  }
+
+  /**
+   * Check if both selected media types have filefield_paths enabled.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   * @param object|null $album
+   *   The album object (if editing).
+   *
+   * @return bool
+   *   TRUE if both image and video media types have filefield_paths enabled.
+   */
+  protected function bothHaveFFP(FormStateInterface $form_state, $album = NULL) {
+    $selected_image_type = $form_state->getValue(['media_types', 'default_media_type'])
+      ?? ($album ? $album->default_media_type : '')
+      ?? '';
+
+    $selected_video_type = $form_state->getValue(['media_types', 'video_media_type'])
+      ?? ($album ? $album->video_media_type : '')
+      ?? '';
+
+    return ($selected_image_type && $this->hasFileFieldPathsEnabled($selected_image_type)) &&
+      ($selected_video_type && $this->hasFileFieldPathsEnabled($selected_video_type));
+  }
+
+  /**
+   * Helper method to build directories content render array.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   * @param object|null $album
+   *   The album object (if editing).
+   *
+   * @return array
+   *   The directories content render array.
+   */
+  protected function buildDirectoriesContent(FormStateInterface $form_state, $album = NULL) {
+    // Always wrap content in the container with ID 'media-drop-directories-content'.
+    $directories_content = [
+      '#type' => 'container',
+      '#attributes' => ['id' => 'media-drop-directories-content'],
+    ];
+
+    // Check if both media types have FFP enabled - blocking message.
+    if ($this->bothHaveFFP($form_state, $album)) {
+      $directories_content['message'] = [
+        '#type' => 'markup',
+        '#markup' => '<div class="messages messages--warning">' . $this->t('<strong>Directory selection disabled:</strong> One or more selected media types have filefield_paths enabled. File paths are managed automatically by filefield_paths configuration. To enable manual directory selection, disable filefield_paths on those media types above.') . '</div>',
+      ];
+      return $directories_content;
+    }
+
+    // Get media types and disable states with proper fallback.
+    // Try form_state first, then album (if editing), then default to empty string.
+    $image_type = $form_state->getValue(['media_types', 'default_media_type'])
+      ?? ($album ? $album->default_media_type : '')
+      ?? '';
+
+    $video_type = $form_state->getValue(['media_types', 'video_media_type'])
+      ?? ($album ? $album->video_media_type : '')
+      ?? '';
+
+    $image_ffp_disable = $form_state->getValue(['media_types', 'default_wrapper', 'disable_filefield_paths_default'])
+      ?? FALSE;
+
+    $video_ffp_disable = $form_state->getValue(['media_types', 'video_wrapper', 'disable_filefield_paths_video'])
+      ?? FALSE;
+
+    $image_has_ffp = $image_type ? ($this->hasFileFieldPathsEnabled($image_type) && !$image_ffp_disable) : FALSE;
+    $video_has_ffp = $video_type ? ($this->hasFileFieldPathsEnabled($video_type) && !$video_ffp_disable) : FALSE;
+    $media_directories_enabled = $this->moduleHandler->moduleExists('media_directories');
+
+    if ($image_has_ffp || $video_has_ffp) {
+      if ($media_directories_enabled) {
+        // Build a detailed message about which media types have filefield_paths enabled.
+        $details = [];
+        if ($image_has_ffp) {
+          $details[] = $this->t('Images follow filefield_paths rules');
+        }
+        if ($video_has_ffp) {
+          $details[] = $this->t('Videos follow filefield_paths rules');
+        }
+
+        $directories_content['message'] = [
+          '#type' => 'markup',
+          '#markup' => '<div class="messages messages--status">' .
+          '<strong>' . $this->t('Directory structure managed:') . '</strong><br>' .
+          $this->t('The following media types use filefield_paths for file organization:') .
+          '<ul><li>' . implode('</li><li>', $details) . '</li></ul>' .
+          $this->t('The media browser allows navigation within these directory structures.') .
+          '</div>',
+        ];
+      }
+      else {
+        $directories_content['message'] = [
+          '#type' => 'markup',
+          '#markup' => '<div class="messages messages--warning">' .
+          '<strong>' . $this->t('Directory selection disabled:') . '</strong> ' .
+          $this->t('One or more selected media types have filefield_paths enabled. Install and enable the media_directories module to enable directory navigation.') .
+          '</div>',
+        ];
+      }
+    }
+
+    return $directories_content;
+  }
+
+  /**
+   * AJAX callback to update filefield_paths warnings and directories section.
+   *
+   * @param array $form
+   *   The form array.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return \Drupal\Core\Ajax\AjaxResponse
+   *   The AJAX response.
+   */
+  public function ajaxUpdateFileFieldPathsWarning(array &$form, FormStateInterface $form_state) {
+    $response = new AjaxResponse();
+
+    $form_state->setRebuild(TRUE);
+
+    $trigger = $form_state->getTriggeringElement();
+    if (!$trigger || empty($trigger['#media_type_context'])) {
+      return $response;
+    }
+
+    // Default | video.
+    $context = $trigger['#media_type_context'];
+
+    // Nom du wrapper dans le form array.
+    $wrapper_key = $context . '_wrapper';
+
+    // ID DOM du wrapper.
+    $wrapper_id = 'media-types-' . $context . '-wrapper';
+
+    // 🔹 1er ReplaceCommand : on retourne le wrapper du FORM
+    $response->addCommand(new ReplaceCommand(
+    '#' . $wrapper_id,
+    $form['media_types'][$wrapper_key]
+    ));
+
+    // Update the directories section using helper method.
+    $directories_content = $this->buildDirectoriesContent($form_state);
+    $response->addCommand(new ReplaceCommand(
+      '#media-drop-directories-content',
+      $directories_content
+    ));
+
+    // Update the jstree wrapper visibility.
+    $jstree_wrapper = $form['directories']['jstree_wrapper'];
+    $response->addCommand(new ReplaceCommand(
+      '#media-drop-jstree-wrapper',
+      $jstree_wrapper
+    ));
+
+    return $response;
+  }
+
+  /**
+   * AJAX callback when disabling filefield_paths on a media type.
+   *
+   * @param array $form
+   *   The form array.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return \Drupal\Core\Ajax\AjaxResponse
+   *   The AJAX response.
+   */
+  public function ajaxDisableFileFieldPaths(array &$form, FormStateInterface $form_state) {
+    $response = new AjaxResponse();
+
+    $form_state->setRebuild(TRUE);
+
+    $trigger = $form_state->getTriggeringElement();
+    if (!$trigger || empty($trigger['#media_type_context'])) {
+      return $response;
+    }
+
+    // Default | video.
+    $context = $trigger['#media_type_context'];
+
+    // Nom du wrapper dans le form array.
+    $wrapper_key = $context . '_wrapper';
+
+    // ID DOM du wrapper.
+    $wrapper_id = 'media-types-' . $context . '-wrapper';
+
+    // Return the rebuilt wrapper from the form.
+    $response->addCommand(new ReplaceCommand(
+      '#' . $wrapper_id,
+      $form['media_types'][$wrapper_key]
+    ));
+
+    // Update directories section using helper method.
+    $directories_content = $this->buildDirectoriesContent($form_state);
+    $response->addCommand(new ReplaceCommand(
+      '#media-drop-directories-content',
+      $directories_content
+    ));
+
+    // Update the jstree wrapper visibility.
+    $jstree_wrapper = $form['directories']['jstree_wrapper'];
+    $response->addCommand(new ReplaceCommand(
+      '#media-drop-jstree-wrapper',
+      $jstree_wrapper
+    ));
+
+    return $response;
+  }
+
+  /**
+   * Disable filefield_paths on media type fields if checkboxes are checked.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   */
+  protected function disableFileFieldPathsIfNeeded(FormStateInterface $form_state) {
+    // Check if default media type disable checkbox is checked.
+    $image_ffp_disable = $form_state->getValue(['media_types', 'default_wrapper', 'disable_filefield_paths_default']);
+    $image_media_type = $form_state->getValue(['media_types', 'default_media_type']);
+
+    if ($image_ffp_disable && $image_media_type && $this->hasFileFieldPathsEnabled($image_media_type)) {
+      $this->disableFileFieldPathsForMediaType($image_media_type);
+    }
+
+    // Check if video media type disable checkbox is checked.
+    $video_ffp_disable = $form_state->getValue(['media_types', 'video_wrapper', 'disable_filefield_paths_video']);
+    $video_media_type = $form_state->getValue(['media_types', 'video_media_type']);
+
+    if ($video_ffp_disable && $video_media_type && $this->hasFileFieldPathsEnabled($video_media_type)) {
+      $this->disableFileFieldPathsForMediaType($video_media_type);
+    }
+  }
+
+  /**
+   * Disable filefield_paths on a specific media type's source field.
+   *
+   * @param string $media_type_id
+   *   The media type ID.
+   */
+  protected function disableFileFieldPathsForMediaType($media_type_id) {
+    $media_type = $this->entityTypeManager->getStorage('media_type')->load($media_type_id);
+    if (!$media_type) {
+      return;
+    }
+
+    // Get the source field name.
+    $source_field = $media_type->getSource()->getConfiguration()['source_field'] ?? NULL;
+    if (!$source_field) {
+      return;
+    }
+
+    // Find and update the field config.
+    $field_configs = $this->entityTypeManager->getStorage('field_config')
+      ->loadByProperties([
+        'entity_type' => 'media',
+        'bundle' => $media_type_id,
+        'field_name' => $source_field,
+      ]);
+
+    foreach ($field_configs as $field_config) {
+      // Remove filefield_paths third party settings.
+      $field_config->unsetThirdPartySetting('filefield_paths', 'enabled');
+      $field_config->unsetThirdPartySetting('filefield_paths', 'filefield_paths');
+      $field_config->save();
+
+      $this->messenger()->addStatus(
+        $this->t('Filefield_paths disabled on @media_type media type (@field_name field).',
+          ['@media_type' => $media_type->label(), '@field_name' => $source_field]
+        )
+      );
+    }
   }
 
 }

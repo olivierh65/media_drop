@@ -53,7 +53,14 @@ media_drop.mime_mapping:
     _title: 'MIME type mapping'
   requirements:
     _permission: 'administer media drop'
-
+media_drop.ajax_check_filefield_paths:
+  path: '/admin/config/media/media-drop/ajax/check-filefield-paths'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\AlbumController::checkFileFieldPathsAjax'
+  requirements:
+    _permission: 'administer media drop'
+    _access: 'TRUE'
+  methods: [POST]
 media_drop.manage_media:
   path: '/admin/config/media/media-drop/manage'
   defaults:

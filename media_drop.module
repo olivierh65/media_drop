@@ -5,6 +5,15 @@
  * Template and theme hooks for Media Drop.
  */
 
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Hook\Attribute\LegacyHook;
+use Drupal\file\Plugin\Field\FieldType\FileFieldItemList;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Render\BubbleableMetadata;
+use Drupal\filefield_paths\Hook\Tokens;
+use Drupal\filefield_paths\Hook\File;
+
+
 /**
  * Implements hook_theme().
  */
@@ -74,104 +83,3 @@ function media_drop_mail($key, &$message, $params) {
       break;
   }
 }
-
-/**
- * Implements hook_file_insert().
- *
- * Integrates with filefield_paths module to update file paths
- * based on tokens and configured path patterns.
- */
-function media_drop_file_insert(\Drupal\file\FileInterface $file) {
-  // Check if filefield_paths module is enabled
-  if (!\Drupal::moduleHandler()->moduleExists('filefield_paths')) {
-    return;
-  }
-
-  // Invoke filefield_paths processing to update file path
-  // if the file needs to be moved according to configured patterns
-  try {
-    $file_field_paths = \Drupal::service('filefield_paths.core_path_process');
-    if ($file_field_paths) {
-      $file_field_paths->processFilePath($file);
-    }
-  }
-  catch (\Exception $e) {
-    \Drupal::logger('media_drop')->warning('Error processing file path for filefield_paths: @error', [
-      '@error' => $e->getMessage(),
-    ]);
-  }
-}
-
-/**
- * Implements hook_media_presave().
- *
- * Integrates with filefield_paths to set up proper directory
- * structure based on media field configuration.
- */
-function media_drop_media_presave(\Drupal\media\MediaInterface $media) {
-  if (!\Drupal::moduleHandler()->moduleExists('filefield_paths')) {
-    return;
-  }
-
-  // Get the media type and source field
-  $source = $media->getSource();
-  $source_field = $source->getConfiguration()['source_field'];
-
-  // Only process if media has file field data
-  if (!$media->hasField($source_field)) {
-    return;
-  }
-
-  $field_value = $media->get($source_field);
-  if ($field_value->isEmpty()) {
-    return;
-  }
-
-  // Apply filefield_paths token replacement to media fields
-  // This allows tokens like [current-user:name] to be used in path patterns
-  try {
-    $filefield_paths_settings = \Drupal::config('filefield_paths.settings');
-    if ($filefield_paths_settings) {
-      // The actual path processing is typically done at field level,
-      // but we invoke it here to ensure media entities benefit from
-      // the configured filefield_paths patterns.
-      $file_field_paths = \Drupal::service('filefield_paths.core_path_process');
-      if ($file_field_paths && method_exists($file_field_paths, 'processMediaPath')) {
-        $file_field_paths->processMediaPath($media, $source_field);
-      }
-    }
-  }
-  catch (\Exception $e) {
-    \Drupal::logger('media_drop')->warning('Error processing media path for filefield_paths: @error', [
-      '@error' => $e->getMessage(),
-    ]);
-  }
-}
-
-/**
- * Implements hook_file_presave().
- *
- * Cleans token patterns from file paths during media_drop uploads.
- * When filefield_paths would normally replace tokens like [current-user:name],
- * we want to preserve the exact paths specified by media_drop.
- *
- * This simply removes the token syntax from the URI if we're in media_drop context.
- */
-function media_drop_file_presave($file) {
-  // Only process if we're in a media_drop upload context.
-  if (!\Drupal::state()->get('media_drop_upload_in_progress', FALSE)) {
-    return;
-  }
-
-  // Clean the file URI by removing any token patterns.
-  // Token patterns look like [something:something-else].
-  $uri = $file->getFileUri();
-  if (!empty($uri) && strpos($uri, '[') !== FALSE) {
-    // Remove token patterns: [anything:anything] → removed
-    $cleaned_uri = preg_replace('/\[[^\]]+\]/', '', $uri);
-    // Clean up any double slashes that might result from removing tokens.
-    $cleaned_uri = preg_replace('#/+#', '/', $cleaned_uri);
-    $file->setFileUri($cleaned_uri);
-  }
-}
-
