@@ -94,7 +94,7 @@ class UploadController extends ControllerBase {
   /**
    * The taxonomy service.
    *
-   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   * @var \Drupal\media_drop\Service\TaxonomyService
    */
   protected $taxonomyService;
 

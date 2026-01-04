@@ -128,6 +128,7 @@ display:
                 confirm_help_text: ''
                 label_override: ''
                 message_override: ''
+          exclude_mode: false
         thumbnail__target_id:
           id: thumbnail__target_id
           table: media_field_data

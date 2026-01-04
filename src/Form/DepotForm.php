@@ -203,7 +203,7 @@ class DepotForm extends FormBase {
 
     $form['name'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Album name'),
+      '#title' => $this->t('Depot name'),
       '#default_value' => $depot ? $depot->name : '',
       '#required' => TRUE,
       '#maxlength' => 255,

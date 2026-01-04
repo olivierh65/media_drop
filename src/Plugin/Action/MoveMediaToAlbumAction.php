@@ -2,6 +2,7 @@
 
 namespace Drupal\media_drop\Plugin\Action;
 
+use Drupal\views\Views;
 use Drupal\Core\Action\ConfigurableActionBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -124,16 +125,46 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     $view_tempstore = \Drupal::service('tempstore.private')->get($temp_store_name);
     $temp_store_data = $view_tempstore->get($user_id);
 
-    if ($temp_store_data && isset($temp_store_data['list'])) {
-      $media_ids = array_map(function ($item) {
-        return is_array($item) ? $item[0] : $item;
-      }, $temp_store_data['list']);
+    $exclude_mode = !empty($temp_store_data['exclude_mode']);
+    if (!$exclude_mode) {
+      if ($temp_store_data && isset($temp_store_data['list'])) {
+        $media_ids = array_map(function ($item) {
+          return is_array($item) ? $item[0] : $item;
+        }, $temp_store_data['list']);
 
-      if (!empty($media_ids)) {
-        // Load the LATEST revision of each media to get current field values.
-        $media_storage = \Drupal::entityTypeManager()->getStorage('media');
-        $this->mediaEntities = [];
-        foreach ($media_ids as $media_id) {
+        if (!empty($media_ids)) {
+          // Load the LATEST revision of each media to get current field values.
+          $media_storage = \Drupal::entityTypeManager()->getStorage('media');
+          $this->mediaEntities = [];
+          foreach ($media_ids as $media_id) {
+            $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
+            if ($latest_revision_id) {
+              $this->mediaEntities[$media_id] = $media_storage->loadRevision($latest_revision_id);
+            }
+          }
+        }
+      }
+    }
+    else {
+      // Case of exclude mode, media list must be get from the view.
+      // Pay attention to have batch: true in VBO settings.
+      /** @var \Drupal\views\ViewExecutable $view */
+      $view = Views::getView($view_id);
+      $view->setDisplay($display_id);
+
+      // ⚠️ important : appliquer les exposed filters
+      if (!empty($temp_store_data['exposed_input'])) {
+        $view->setExposedInput($temp_store_data['exposed_input']);
+      }
+
+      $view->execute();
+
+      $media_storage = \Drupal::entityTypeManager()->getStorage('media');
+      $this->mediaEntities = [];
+
+      foreach ($view->result as $row) {
+        if (!empty($row->_entity)) {
+          $media_id = $row->_entity->id();
           $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
           if ($latest_revision_id) {
             $this->mediaEntities[$media_id] = $media_storage->loadRevision($latest_revision_id);
@@ -144,10 +175,10 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
     $form['#tree'] = TRUE;
 
-    // Step 1: Select Depot and Directory.
+    // Step 1: Select an Album and Directory.
     $form['step_1'] = [
       '#type' => 'details',
-      '#title' => $this->t('Step 1: Select Depot and Directory'),
+      '#title' => $this->t('Step 1: Select an Album and Directory'),
       '#open' => TRUE,
     ];
 
@@ -157,20 +188,20 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       '</div>',
     ];
 
-    // Depot selection.
-    $depot_bundles = [];
-    $depot_options = $this->getDepotOptions($depot_bundles);
+    // Album selection.
+    $album_bundles = [];
+    $album_options = $this->getAlbumOptions($album_bundles);
 
     $form['step_1']['depot_id'] = [
       '#type' => 'select',
-      '#title' => $this->t('Select depot'),
-      '#description' => $this->t('Select an existing depot (node) with media fields to add the selected media to.'),
-      '#options' => $depot_options,
+      '#title' => $this->t('Select Album'),
+      '#description' => $this->t('Select an existing album (node) with media fields to add the selected media to.'),
+      '#options' => $album_options,
       '#required' => TRUE,
       '#default_value' => $this->configuration['depot_id'] ?? '',
-      '#empty_option' => $this->t('- Select an depot -'),
+      '#empty_option' => $this->t('- Select an album -'),
       '#ajax' => [
-        'callback' => [$this, 'ajaxUpdateDepotFields'],
+        'callback' => [$this, 'ajaxUpdateAlbumFields'],
         'wrapper' => 'depot-fields-wrapper',
         'event' => 'change',
       ],
@@ -232,7 +263,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * @return array
    *   Array of node IDs keyed by node title.
    */
-  protected function getDepotOptions(array $bundles) {
+  protected function getAlbumOptions(array $bundles) {
     $options = [];
 
     try {
@@ -1807,7 +1838,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * @return array
    *   The updated form element.
    */
-  public function ajaxUpdateDepotFields(array $form, FormStateInterface $form_state) {
+  public function ajaxUpdateAlbumFields(array $form, FormStateInterface $form_state) {
     // Force form rebuild so Drupal recalculates all form values.
     $form_state->setRebuild(TRUE);
 
