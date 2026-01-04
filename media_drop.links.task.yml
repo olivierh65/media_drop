@@ -4,10 +4,10 @@ media_drop.settings_tab:
   title: 'Settings'
   weight: 0
 
-media_drop.albums_tab:
-  route_name: media_drop.album_list
+media_drop.depots_tab:
+  route_name: media_drop.depot_list
   base_route: media_drop.admin_settings
-  title: 'Albums'
+  title: 'Depots'
   weight: 10
 
 media_drop.manage_media_tab:

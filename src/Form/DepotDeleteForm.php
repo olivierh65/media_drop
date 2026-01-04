@@ -9,9 +9,9 @@ use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Album deletion confirmation form.
+ * Depot deletion confirmation form.
  */
-class AlbumDeleteForm extends ConfirmFormBase {
+class DepotDeleteForm extends ConfirmFormBase {
 
   /**
    * The database connection.
@@ -21,14 +21,14 @@ class AlbumDeleteForm extends ConfirmFormBase {
   protected $database;
 
   /**
-   * The album to delete.
+   * The depot to delete.
    *
    * @var object
    */
-  protected $album;
+  protected $depot;
 
   /**
-   * Constructs a new AlbumDeleteForm.
+   * Constructs a new DepotDeleteForm.
    */
   public function __construct(Connection $database) {
     $this->database = $database;
@@ -47,27 +47,27 @@ class AlbumDeleteForm extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'media_drop_album_delete_form';
+    return 'media_drop_depot_delete_form';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, $album_id = NULL) {
-    $this->album = $this->database->select('media_drop_albums', 'a')
+  public function buildForm(array $form, FormStateInterface $form_state, $depot_id = NULL) {
+    $this->depot = $this->database->select('media_drop_depots', 'a')
       ->fields('a')
-      ->condition('id', $album_id)
+      ->condition('id', $depot_id)
       ->execute()
       ->fetchObject();
 
-    if (!$this->album) {
-      $this->messenger()->addError($this->t('Album not found.'));
-      return $this->redirect('media_drop.album_list');
+    if (!$this->depot) {
+      $this->messenger()->addError($this->t('Depot not found.'));
+      return $this->redirect('media_drop.depot_list');
     }
 
     // Count associated uploads.
     $upload_count = $this->database->select('media_drop_uploads', 'u')
-      ->condition('album_id', $this->album->id)
+      ->condition('depot_id', $this->depot->id)
       ->countQuery()
       ->execute()
       ->fetchField();
@@ -75,7 +75,7 @@ class AlbumDeleteForm extends ConfirmFormBase {
     if ($upload_count > 0) {
       $form['warning'] = [
         '#markup' => '<div class="messages messages--warning">' .
-        $this->t('Warning: this album contains @count media item(s). The media themselves will not be deleted, but the links with this album will be lost.', [
+        $this->t('Warning: this depot contains @count media item(s). The media themselves will not be deleted, but the links with this depot will be lost.', [
           '@count' => $upload_count,
         ]) .
         '</div>',
@@ -89,8 +89,8 @@ class AlbumDeleteForm extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function getQuestion() {
-    return $this->t('Are you sure you want to delete the album %name?', [
-      '%name' => $this->album->name,
+    return $this->t('Are you sure you want to delete the depot %name?', [
+      '%name' => $this->depot->name,
     ]);
   }
 
@@ -105,7 +105,7 @@ class AlbumDeleteForm extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function getCancelUrl() {
-    return new Url('media_drop.album_list');
+    return new Url('media_drop.depot_list');
   }
 
   /**
@@ -114,16 +114,16 @@ class AlbumDeleteForm extends ConfirmFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     // Delete upload entries.
     $this->database->delete('media_drop_uploads')
-      ->condition('album_id', $this->album->id)
+      ->condition('depot_id', $this->depot->id)
       ->execute();
 
-    // Delete the album.
-    $this->database->delete('media_drop_albums')
-      ->condition('id', $this->album->id)
+    // Delete the depot.
+    $this->database->delete('media_drop_depots')
+      ->condition('id', $this->depot->id)
       ->execute();
 
-    $this->messenger()->addStatus($this->t('The album %name has been deleted.', [
-      '%name' => $this->album->name,
+    $this->messenger()->addStatus($this->t('The depot %name has been deleted.', [
+      '%name' => $this->depot->name,
     ]));
 
     $form_state->setRedirectUrl($this->getCancelUrl());

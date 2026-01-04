@@ -18,9 +18,10 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
-use Drupal\media_drop\Service\TaxonomyService;
+use Drupal\media_taxonomy_service\Service\DirectoryService;
 use Drupal\media_drop\Service\NotificationService;
 use Psr\Log\LoggerInterface;
+use Drupal\Core\Messenger\MessengerInterface;
 
 /**
  * Controller for media upload interface.
@@ -93,7 +94,7 @@ class UploadController extends ControllerBase {
   /**
    * The taxonomy service.
    *
-   * @var \Drupal\media_drop\Service\TaxonomyService
+   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
    */
   protected $taxonomyService;
 
@@ -105,11 +106,25 @@ class UploadController extends ControllerBase {
   protected $notificationService;
 
   /**
+   * The directory service.
+   *
+   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   */
+  protected $directoryService;
+
+  /**
    * The logger.
    *
    * @var \Psr\Log\LoggerInterface
    */
   protected $logger;
+
+  /**
+   * The messenger service.
+   *
+   * @var \Drupal\Core\Messenger\MessengerInterface
+   */
+  protected $messenger;
 
   /**
    * Constructs a new UploadController.
@@ -124,9 +139,11 @@ class UploadController extends ControllerBase {
     RequestStack $request_stack,
     TimeInterface $time,
     ModuleHandlerInterface $module_handler,
-    TaxonomyService $taxonomy_service,
+    DirectoryService $taxonomy_service,
     NotificationService $notification_service,
+    DirectoryService $directory_service,
     LoggerInterface $logger,
+    MessengerInterface $messenger,
   ) {
     $this->database = $database;
     $this->entityTypeManager = $entity_type_manager;
@@ -139,7 +156,9 @@ class UploadController extends ControllerBase {
     $this->moduleHandler = $module_handler;
     $this->taxonomyService = $taxonomy_service;
     $this->notificationService = $notification_service;
+    $this->directoryService = $directory_service;
     $this->logger = $logger;
+    $this->messenger = $messenger;
   }
 
   /**
@@ -158,27 +177,33 @@ class UploadController extends ControllerBase {
       $container->get('module_handler'),
       $container->get('media_drop.taxonomy_service'),
       $container->get('media_drop.notification_service'),
+      $container->get('media_taxonomy_service.directory_service'),
       $container->get('logger.factory')->get('media_drop'),
+      $container->get('messenger'),
     );
   }
 
   /**
-   * Upload page for an album.
+   * Upload page for a depot.
    */
-  public function uploadPage($album_token) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function uploadPage($depot_token) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
+    if (!$depot) {
       return [
-        '#markup' => '<p>' . $this->t('Album not found or inactive.') . '</p>',
+        '#markup' => '<p>' . $this->t('Depot not found or inactive.') . '</p>',
       ];
     }
 
+    // Perform maintenance: recreate deleted directories and cleanup missing media.
+    $this->recreateDeletedDirectories($depot);
+    $this->cleanupMissingMedia($depot);
+
     // Check upload permission early.
-    if (!$this->currentUser()->hasPermission('upload media to albums')) {
-      $this->logger->warning('User @uid attempted to access upload page without permission for album @album', [
+    if (!$this->currentUser()->hasPermission('upload media to depots')) {
+      $this->logger->warning('User @uid attempted to access upload page without permission for depot @depot', [
         '@uid' => $this->currentUser()->id(),
-        '@album' => $album_token,
+        '@depot' => $depot_token,
       ]);
       return [
         '#markup' => '<p>' . $this->t('You do not have permission to access this page.') . '</p>',
@@ -186,9 +211,9 @@ class UploadController extends ControllerBase {
     }
 
     $is_anonymous = $this->currentUser()->isAnonymous();
-    $can_upload = $this->currentUser()->hasPermission('upload media to albums');
+    $can_upload = $this->currentUser()->hasPermission('upload media to depots');
     $can_view = $this->currentUser()->hasPermission('view own uploaded media');
-    $can_create_folder = $this->currentUser()->hasPermission('create album folders');
+    $can_create_folder = $this->currentUser()->hasPermission('create depot folders');
     $can_delete = $this->currentUser()->hasPermission('delete own uploaded media');
 
     $allowed_extensions = $this->config('media_drop.settings')->get('allowed_extensions');
@@ -223,7 +248,7 @@ class UploadController extends ControllerBase {
       'title' => [
         '#type' => 'html_tag',
         '#tag' => 'h1',
-        '#value' => $this->t('Drop your media: @album', ['@album' => $album->name]),
+        '#value' => $this->t('Drop your media: @depot', ['@depot' => $depot->name]),
       ],
     ];
 
@@ -344,7 +369,7 @@ class UploadController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'form',
         '#attributes' => [
-          'action' => Url::fromRoute('media_drop.ajax_upload', ['album_token' => $album_token])->toString(),
+          'action' => Url::fromRoute('media_drop.ajax_upload', ['depot_token' => $depot_token])->toString(),
           'class' => ['dropzone'],
           'id' => 'media-dropzone',
         ],
@@ -395,17 +420,17 @@ class UploadController extends ControllerBase {
 
     // Pass settings to JavaScript.
     $build['#attached']['drupalSettings']['media_drop'] = [
-      'album_token' => $album_token,
-      'album_name' => $album->name,
+      'depot_token' => $depot_token,
+      'depot_name' => $depot->name,
       'max_file_size' => $this->config('media_drop.settings')->get('max_filesize') ?: 50,
       'accepted_files' => $accepted_files,
-      'upload_url' => Url::fromRoute('media_drop.ajax_upload', ['album_token' => $album_token])->toString(),
-      'check_duplicate_url' => Url::fromRoute('media_drop.ajax_check_duplicate', ['album_token' => $album_token])->toString(),
-      'create_folder_url' => Url::fromRoute('media_drop.ajax_create_folder', ['album_token' => $album_token])->toString(),
-      'list_folders_url' => Url::fromRoute('media_drop.ajax_list_folders', ['album_token' => $album_token])->toString(),
-      'list_media_url' => Url::fromRoute('media_drop.ajax_list_media', ['album_token' => $album_token])->toString(),
-      'delete_media_url' => Url::fromRoute('media_drop.ajax_delete_media', ['album_token' => $album_token, 'media_id' => '__MEDIA_ID__'])->toString(),
-      'trigger_notification_url' => Url::fromRoute('media_drop.ajax_trigger_notification', ['album_token' => $album_token])->toString(),
+      'upload_url' => Url::fromRoute('media_drop.ajax_upload', ['depot_token' => $depot_token])->toString(),
+      'check_duplicate_url' => Url::fromRoute('media_drop.ajax_check_duplicate', ['depot_token' => $depot_token])->toString(),
+      'create_folder_url' => Url::fromRoute('media_drop.ajax_create_folder', ['depot_token' => $depot_token])->toString(),
+      'list_folders_url' => Url::fromRoute('media_drop.ajax_list_folders', ['depot_token' => $depot_token])->toString(),
+      'list_media_url' => Url::fromRoute('media_drop.ajax_list_media', ['depot_token' => $depot_token])->toString(),
+      'delete_media_url' => Url::fromRoute('media_drop.ajax_delete_media', ['depot_token' => $depot_token, 'media_id' => '__MEDIA_ID__'])->toString(),
+      'trigger_notification_url' => Url::fromRoute('media_drop.ajax_trigger_notification', ['depot_token' => $depot_token])->toString(),
       'can_upload' => $can_upload,
       'can_delete' => $can_delete,
       'can_create_folder' => $can_create_folder,
@@ -420,19 +445,19 @@ class UploadController extends ControllerBase {
   /**
    * Upload AJAX handler.
    */
-  public function ajaxUpload($album_token, Request $request) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function ajaxUpload($depot_token, Request $request) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
-      $this->logger->error('Album not found for token: @token', ['@token' => $album_token]);
-      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    if (!$depot) {
+      $this->logger->error('Depot not found for token: @token', ['@token' => $depot_token]);
+      return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
 
     // Check permissions - mandatory check.
-    if (!$this->currentUser()->hasPermission('upload media to albums')) {
-      $this->logger->warning('User @uid denied upload permission for album @album', [
+    if (!$this->currentUser()->hasPermission('upload media to depots')) {
+      $this->logger->warning('User @uid denied upload permission for depot @depot', [
         '@uid' => $this->currentUser()->id(),
-        '@album' => $album->id,
+        '@depot' => $depot->id,
       ]);
       return new JsonResponse(['error' => $this->t('Permission denied.')], 403);
     }
@@ -454,7 +479,7 @@ class UploadController extends ControllerBase {
     $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
 
     // Build destination path.
-    $destination = $album->base_directory . '/' . $safe_user_name;
+    $destination = $depot->base_directory . '/' . $safe_user_name;
     if (!empty($subfolder)) {
       $safe_subfolder = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($subfolder));
       $destination .= '/' . $safe_subfolder;
@@ -506,6 +531,7 @@ class UploadController extends ControllerBase {
         $destination_uri = $destination . '/' . $filename;
 
         // Check if file already exists with same size (duplicate check).
+        // Duplicate is checked on JS side, but we keep this as a server-side fallback.
         $duplicate_check = $this->checkDuplicateFile($destination_uri, $file->getSize());
         if ($duplicate_check['exists']) {
           $this->logger->notice('Duplicate file detected: @file (size: @size)', [
@@ -536,7 +562,7 @@ class UploadController extends ControllerBase {
         }
 
         // Determine media type based on MIME type.
-        $media_type = $this->getMediaTypeForMime($mime_type, $album);
+        $media_type = $this->getMediaTypeForMime($mime_type, $depot);
 
         if (!$media_type) {
           $this->logger->notice('Unsupported MIME type @mime for file @file', [
@@ -590,24 +616,22 @@ class UploadController extends ControllerBase {
         $directory_tid = NULL;
         // Handle Media Directories taxonomy assignment.
         if ($this->moduleHandler->moduleExists('media_directories')) {
-          // If a subfolder was chosen and the album is set to auto-create the structure.
-          if ($album->auto_create_structure) {
-            $safe_subfolder = !empty($subfolder) ? preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($subfolder)) : NULL;
+          // Auto-create the structure for user/subfolder in taxonomy.
+          $safe_subfolder = !empty($subfolder) ? preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($subfolder)) : NULL;
 
-            // This service call should ensure terms exist for user/subfolder and return the final term ID.
-            // NOTE: This assumes `ensureDirectoryTerm` returns the term ID.
-            // If it does not, that service needs to be modified to do so.
-            $directory_tid = $this->taxonomyService->ensureDirectoryTerm(
-              $album->id,
-              $safe_user_name,
-              $safe_subfolder
-            );
-          }
+          // This service call should ensure terms exist for user/subfolder and return the final term ID.
+          // NOTE: This assumes `ensureDirectoryTerm` returns the term ID.
+          // If it does not, that service needs to be modified to do so.
+          $directory_tid = $this->taxonomyService->ensureDirectoryTerm(
+            $depot->id,
+            $safe_user_name,
+            $safe_subfolder
+          );
 
           // If no term was found/created yet (e.g. no subfolder, or auto-create is off),
-          // fall back to the album's base directory setting.
-          if (!$directory_tid && !empty($album->media_directory)) {
-            $directory_tid = $album->media_directory;
+          // fall back to the depot's base directory setting.
+          if (!$directory_tid && !empty($depot->media_directory)) {
+            $directory_tid = $depot->media_directory;
           }
         }
 
@@ -630,7 +654,7 @@ class UploadController extends ControllerBase {
         $session_id = $this->getSessionId();
         $this->database->insert('media_drop_uploads')
           ->fields([
-            'album_id' => $album->id,
+            'depot_id' => $depot->id,
             'media_id' => $media->id(),
             'uid' => $this->currentUser()->id(),
             'user_name' => $user_name,
@@ -654,10 +678,10 @@ class UploadController extends ControllerBase {
           'thumbnail' => $this->getMediaThumbnail($media),
         ];
 
-        $this->logger->info('File @file uploaded successfully by user @user to album @album', [
+        $this->logger->info('File @file uploaded successfully by user @user to depot @depot', [
           '@file' => $filename,
           '@user' => $user_name,
-          '@album' => $album->id,
+          '@depot' => $depot->id,
         ]);
 
       }
@@ -678,7 +702,7 @@ class UploadController extends ControllerBase {
     // Send a single notification email with all uploaded files.
     // send one mail per upload batch.
     /* if (!empty($uploaded_files_for_notification)) {
-    $this->notificationService->notifyUploadBatch($album, $uploaded_files_for_notification);
+    $this->notificationService->notifyUploadBatch($depot, $uploaded_files_for_notification);
     } */
 
     return new JsonResponse(['results' => $results]);
@@ -687,10 +711,10 @@ class UploadController extends ControllerBase {
   /**
    * Lists subfolders for the current user.
    */
-  public function listFolders($album_token, Request $request) {
-    $album = $this->loadAlbumByToken($album_token);
-    if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+  public function listFolders($depot_token, Request $request) {
+    $depot = $this->loadDepotByToken($depot_token);
+    if (!$depot) {
+      return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
 
     $user_name = '';
@@ -706,7 +730,7 @@ class UploadController extends ControllerBase {
     }
 
     $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
-    $user_directory = $this->fileSystem->realpath($album->base_directory . '/' . $safe_user_name);
+    $user_directory = $this->fileSystem->realpath($depot->base_directory . '/' . $safe_user_name);
 
     $folders = [];
     if (is_dir($user_directory)) {
@@ -728,11 +752,11 @@ class UploadController extends ControllerBase {
   /**
    * Create a subfolder.
    */
-  public function createFolder($album_token, Request $request) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function createFolder($depot_token, Request $request) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    if (!$depot) {
+      return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
 
     $folder_name = $request->request->get('folder_name');
@@ -753,7 +777,7 @@ class UploadController extends ControllerBase {
     $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
     $safe_folder_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($folder_name));
 
-    $destination = $album->base_directory . '/' . $safe_user_name . '/' . $safe_folder_name;
+    $destination = $depot->base_directory . '/' . $safe_user_name . '/' . $safe_folder_name;
 
     try {
       $this->fileSystem->prepareDirectory($destination, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
@@ -761,7 +785,7 @@ class UploadController extends ControllerBase {
       // Create taxonomy term if Media Directories is enabled.
       if ($this->moduleHandler->moduleExists('media_directories')) {
         $this->taxonomyService->ensureDirectoryTerm(
-          $album->id,
+          $depot->id,
           $safe_user_name,
           $safe_folder_name
         );
@@ -781,17 +805,17 @@ class UploadController extends ControllerBase {
   /**
    * List media uploaded by the user.
    */
-  public function listMedia($album_token, Request $request) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function listMedia($depot_token, Request $request) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    if (!$depot) {
+      return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
 
     $session_id = $this->getSessionId();
     $query = $this->database->select('media_drop_uploads', 'u')
       ->fields('u')
-      ->condition('album_id', $album->id);
+      ->condition('depot_id', $depot->id);
 
     if ($this->currentUser()->isAnonymous()) {
       $query->condition('session_id', $session_id);
@@ -822,11 +846,11 @@ class UploadController extends ControllerBase {
   /**
    * Delete a media.
    */
-  public function deleteMedia($album_token, $media_id) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function deleteMedia($depot_token, $media_id) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    if (!$depot) {
+      return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
 
     $session_id = $this->getSessionId();
@@ -834,7 +858,7 @@ class UploadController extends ControllerBase {
     // Check that the user owns the media.
     $query = $this->database->select('media_drop_uploads', 'u')
       ->fields('u')
-      ->condition('album_id', $album->id)
+      ->condition('depot_id', $depot->id)
       ->condition('media_id', $media_id);
 
     if ($this->currentUser()->isAnonymous()) {
@@ -895,14 +919,14 @@ class UploadController extends ControllerBase {
   /**
    * Access control for upload.
    */
-  public function checkUploadAccess($album_token, AccountInterface $account) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function checkUploadAccess($depot_token, AccountInterface $account) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
-      return AccessResult::forbidden('Album not found.');
+    if (!$depot) {
+      return AccessResult::forbidden('Depot not found.');
     }
 
-    if (!$account->hasPermission('upload media to albums')) {
+    if (!$account->hasPermission('upload media to depots')) {
       return AccessResult::forbidden('Permission denied.');
     }
 
@@ -910,10 +934,10 @@ class UploadController extends ControllerBase {
   }
 
   /**
-   * Load an album by token.
+   * Load an depot by token.
    */
-  protected function loadAlbumByToken($token) {
-    return $this->database->select('media_drop_albums', 'a')
+  protected function loadDepotByToken($token) {
+    return $this->database->select('media_drop_depots', 'a')
       ->fields('a')
       ->condition('token', $token)
       ->condition('status', 1)
@@ -924,16 +948,16 @@ class UploadController extends ControllerBase {
   /**
    * Get media type for a MIME type.
    */
-  protected function getMediaTypeForMime($mime_type, $album = NULL) {
-    // If the album has defined specific media types, use them as priority.
-    if ($album) {
+  protected function getMediaTypeForMime($mime_type, $depot = NULL) {
+    // If the depot has defined specific media types, use them as priority.
+    if ($depot) {
       // For images.
-      if (strpos($mime_type, 'image/') === 0 && !empty($album->default_media_type)) {
-        return $album->default_media_type;
+      if (strpos($mime_type, 'image/') === 0 && !empty($depot->default_media_type)) {
+        return $depot->default_media_type;
       }
       // For videos.
-      if (strpos($mime_type, 'video/') === 0 && !empty($album->video_media_type)) {
-        return $album->video_media_type;
+      if (strpos($mime_type, 'video/') === 0 && !empty($depot->video_media_type)) {
+        return $depot->video_media_type;
       }
     }
 
@@ -987,11 +1011,11 @@ class UploadController extends ControllerBase {
   /**
    * Trigger notification after all uploads are complete.
    */
-  public function triggerNotification($album_token, Request $request) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function triggerNotification($depot_token, Request $request) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    if (!$depot) {
+      return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
 
     $user_name = $request->request->get('user_name');
@@ -1008,7 +1032,7 @@ class UploadController extends ControllerBase {
     $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
     $query = $this->database->select('media_drop_uploads', 'u')
       ->fields('u')
-      ->condition('album_id', $album->id)
+      ->condition('depot_id', $depot->id)
       ->condition('user_name', $user_name);
 
     if ($this->currentUser()->isAnonymous()) {
@@ -1038,7 +1062,7 @@ class UploadController extends ControllerBase {
 
       // Send a single notification email with all uploaded files.
       if (!empty($uploaded_files)) {
-        $this->notificationService->notifyUploadBatch($user_name, $album, $uploaded_files);
+        $this->notificationService->notifyUploadBatch($user_name, $depot, $uploaded_files);
       }
     }
 
@@ -1060,11 +1084,11 @@ class UploadController extends ControllerBase {
   /**
    * Check if a file already exists via AJAX.
    */
-  public function checkDuplicate($album_token, Request $request) {
-    $album = $this->loadAlbumByToken($album_token);
+  public function checkDuplicate($depot_token, Request $request) {
+    $depot = $this->loadDepotByToken($depot_token);
 
-    if (!$album) {
-      return new JsonResponse(['error' => $this->t('Album not found.')], 404);
+    if (!$depot) {
+      return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
 
     $filename = $request->request->get('filename');
@@ -1078,7 +1102,7 @@ class UploadController extends ControllerBase {
 
     // Build destination path (same logic as upload)
     $safe_user_name = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($user_name));
-    $destination = $album->base_directory . '/' . $safe_user_name;
+    $destination = $depot->base_directory . '/' . $safe_user_name;
     if (!empty($subfolder)) {
       $safe_subfolder = preg_replace('/[^a-z0-9_\-\.]/', '_', strtolower($subfolder));
       $destination .= '/' . $safe_subfolder;
@@ -1097,6 +1121,125 @@ class UploadController extends ControllerBase {
     }
 
     return new JsonResponse(['exists' => FALSE]);
+  }
+
+  /**
+   * Recreate directories that may have been deleted.
+   *
+   * Based on the media_directories taxonomy terms, recreate any directories
+   * that are missing from the file system.
+   *
+   * @param object $depot
+   *   The depot object.
+   */
+  protected function recreateDeletedDirectories($depot) {
+    if (!$this->moduleHandler->moduleExists('media_directories')) {
+      // Media directories module not enabled.
+      return;
+    }
+
+    // Get the vocabulary ID from the depot's media_directory field.
+    if (empty($depot->media_directory)) {
+      // No vocabulary configured for this depot.
+      return;
+    }
+
+    try {
+      $tree = $this->directoryService
+        ->getDirectoryTreeFromTermId($depot->media_directory);
+
+      $this->directoryService
+        ->ensureDirectoriesExist($tree, $depot->base_directory);
+    }
+    catch (\RuntimeException $e) {
+      $this->messenger->addError(
+        $this->t('An error occurred while creating directories.')
+      );
+    }
+  }
+
+  /**
+   * Clean up media entities that have been deleted or moved.
+   *
+   * Remove media entities from the database if their source files no longer
+   * exist in the depot's directory structure.
+   *
+   * @param object $depot
+   *   The depot object.
+   */
+  protected function cleanupMissingMedia($depot) {
+    // Get all media associated with this depot.
+    $query = $this->database->select('media_drop_uploads', 'u')
+      ->fields('u', ['media_id', 'id'])
+      ->condition('depot_id', $depot->id);
+
+    $uploads = $query->execute()->fetchAll();
+
+    $mediaStorage = $this->entityTypeManager->getStorage('media');
+    $deletedCount = 0;
+
+    foreach ($uploads as $upload) {
+      $media = $mediaStorage->load($upload->media_id);
+
+      if (!$media) {
+        // Media entity doesn't exist, remove from tracking.
+        $this->database->delete('media_drop_uploads')
+          ->condition('id', $upload->id)
+          ->execute();
+        continue;
+      }
+
+      // Get the source file field.
+      try {
+        $source_field = $media->getSource()->getConfiguration()['source_field'];
+
+        if (!$media->hasField($source_field) || $media->get($source_field)->isEmpty()) {
+          // No file attached, delete the media.
+          $media->delete();
+          $this->database->delete('media_drop_uploads')
+            ->condition('id', $upload->id)
+            ->execute();
+          $deletedCount++;
+          continue;
+        }
+
+        // Check if the file still exists.
+        $file_exists = FALSE;
+        foreach ($media->get($source_field) as $field_item) {
+          if ($field_item->entity) {
+            $file_uri = $field_item->entity->getFileUri();
+            $file_path = $this->fileSystem->realpath($file_uri);
+
+            if (file_exists($file_path)) {
+              $file_exists = TRUE;
+              break;
+            }
+          }
+        }
+
+        // If file doesn't exist, delete the media and tracking record.
+        if (!$file_exists) {
+          $media->delete();
+          $this->database->delete('media_drop_uploads')
+            ->condition('id', $upload->id)
+            ->execute();
+          $deletedCount++;
+        }
+      }
+      catch (\Exception $e) {
+        $this->logger->warning(
+          'Error checking media @media_id: @error',
+          ['@media_id' => $upload->media_id, '@error' => $e->getMessage()]
+              );
+      }
+    }
+
+    if ($deletedCount > 0) {
+      $this->logger->info(
+        'Cleaned up @count missing media entries for depot @depot',
+        ['@count' => $deletedCount, '@depot' => $depot->id]
+      );
+    }
   }
 
   /**

@@ -7,6 +7,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\media_taxonomy_service\Service\DirectoryService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -29,11 +30,19 @@ class MoveMediaToDirectory extends ConfigurableActionBase implements ContainerFa
   protected $entityTypeManager;
 
   /**
+   * The taxonomy service.
+   *
+   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   */
+  protected $taxonomyService;
+
+  /**
    * Constructs a MoveMediaToDirectory object.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, DirectoryService $taxonomy_service) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->entityTypeManager = $entity_type_manager;
+    $this->taxonomyService = $taxonomy_service;
   }
 
   /**
@@ -44,7 +53,8 @@ class MoveMediaToDirectory extends ConfigurableActionBase implements ContainerFa
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('entity_type.manager')
+      $container->get('entity_type.manager'),
+      $container->get('media_drop.taxonomy_service')
     );
   }
 
@@ -149,6 +159,9 @@ class MoveMediaToDirectory extends ConfigurableActionBase implements ContainerFa
         return;
       }
     }
+
+    // Move the physical files to the corresponding directory.
+    $this->taxonomyService->moveMediaFilesToDirectory($entity, $directory_tid, TRUE);
 
     $entity->save();
   }

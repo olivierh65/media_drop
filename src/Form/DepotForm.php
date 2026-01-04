@@ -16,14 +16,15 @@ use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Extension\ModuleExtensionList;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Component\Datetime\TimeInterface;
-use Drupal\media_drop\Service\TaxonomyService;
 use Drupal\media_taxonomy_service\Service\DirectoryService;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Psr\Log\LoggerInterface;
+use Drupal\Core\File\FileSystemInterface;
 
 /**
- * Form for creating/editing albums.
+ * Form for creating/editing depots.
  */
-class AlbumForm extends FormBase {
+class DepotForm extends FormBase {
 
   /**
    * The database connection.
@@ -69,7 +70,7 @@ class AlbumForm extends FormBase {
   /**
    * The taxonomy service.
    *
-   * @var \Drupal\media_drop\Service\TaxonomyService
+   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
    */
   protected $taxonomyService;
 
@@ -95,7 +96,21 @@ class AlbumForm extends FormBase {
   protected $renderer;
 
   /**
-   * Constructs a new AlbumForm.
+   * The logger service.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected $logger;
+
+  /**
+   * The file system service.
+   *
+   * @var \Drupal\Core\File\FileSystemInterface
+   */
+  protected $fileSystem;
+
+  /**
+   * Constructs a new DepotForm.
    */
   public function __construct(
     Connection $database,
@@ -104,10 +119,12 @@ class AlbumForm extends FormBase {
     ModuleExtensionList $extension_list_module,
     RequestStack $request_stack,
     TimeInterface $time,
-    TaxonomyService $taxonomy_service,
+    DirectoryService $taxonomy_service,
     DirectoryService $directory_service,
     ModuleHandlerInterface $module_handler,
     RendererInterface $renderer,
+    LoggerInterface $logger,
+    FileSystemInterface $file_system,
   ) {
     $this->database = $database;
     $this->entityTypeManager = $entity_type_manager;
@@ -119,6 +136,8 @@ class AlbumForm extends FormBase {
     $this->directoryService = $directory_service;
     $this->moduleHandler = $module_handler;
     $this->renderer = $renderer;
+    $this->logger = $logger;
+    $this->fileSystem = $file_system;
   }
 
   /**
@@ -135,7 +154,9 @@ class AlbumForm extends FormBase {
     $container->get('media_drop.taxonomy_service'),
     $container->get('media_taxonomy_service.directory_service'),
     $container->get('module_handler'),
-    $container->get('renderer')
+    $container->get('renderer'),
+    $container->get('logger.factory')->get('media_drop'),
+    $container->get('file_system')
     );
 
   }
@@ -154,32 +175,36 @@ class AlbumForm extends FormBase {
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'media_drop_album_form';
+    return 'media_drop_depot_form';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, $album_id = NULL) {
-    $album = NULL;
+  public function buildForm(array $form, FormStateInterface $form_state, $depot_id = NULL) {
+    $depot = NULL;
 
-    if ($album_id) {
-      $album = $this->database->select('media_drop_albums', 'a')
+    if ($depot_id) {
+      $depot = $this->database->select('media_drop_depots', 'a')
         ->fields('a')
-        ->condition('id', $album_id)
+        ->condition('id', $depot_id)
         ->execute()
         ->fetchObject();
 
-      if (!$album) {
-        $this->messenger()->addError($this->t('Album not found.'));
+      if (!$depot) {
+        $this->messenger()->addError($this->t('Depot not found.'));
         return $form;
       }
+    }
+    else {
+      // Load default values from media_album_av if creating a new depot.
+      $depot = $this->getDefaultDepotValues();
     }
 
     $form['name'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Album name'),
-      '#default_value' => $album ? $album->name : '',
+      '#default_value' => $depot ? $depot->name : '',
       '#required' => TRUE,
       '#maxlength' => 255,
       '#description' => $this->t('Example: Birthday 2025, Sophie & Pierre\'s wedding'),
@@ -195,14 +220,14 @@ class AlbumForm extends FormBase {
       '#title' => $this->t('Media types'),
       '#description' => $this->t('Select the media types to create for uploaded files. If not specified, the system will use the default MIME mapping.'),
       '#tree' => TRUE,
-      '#attributes' => ['id' => 'media-drop-album-form'],
+      '#attributes' => ['id' => 'media-drop-depot-form'],
     ];
 
     $form['media_types']['default_media_type'] = [
       '#type' => 'select',
       '#title' => $this->t('Media type for images'),
       '#options' => ['' => $this->t('- Use default MIME mapping -')] + $image_media_types,
-      '#default_value' => $album ? $album->default_media_type : '',
+      '#default_value' => $depot ? $depot->default_media_type : '',
       '#description' => $this->t('Drupal media type that will be created for image files (JPEG, PNG, etc.)'),
       '#media_type_context' => 'default',
       '#ajax' => [
@@ -221,7 +246,7 @@ class AlbumForm extends FormBase {
     // Check if selected image media type has filefield_paths enabled.
     $selected_image_type =
     $form_state->getValue(['media_types', 'default_media_type'])
-    ?? ($album ? $album->default_media_type : '');
+    ?? ($depot ? $depot->default_media_type : '');
 
     $form['media_types']['default_wrapper']['warning_container'] = [
       '#type' => 'container',
@@ -256,7 +281,7 @@ class AlbumForm extends FormBase {
       '#type' => 'select',
       '#title' => $this->t('Media type for videos'),
       '#options' => ['' => $this->t('- Use default MIME mapping -')] + $video_media_types,
-      '#default_value' => $album ? $album->video_media_type : '',
+      '#default_value' => $depot ? $depot->video_media_type : '',
       '#description' => $this->t('Drupal media type that will be created for video files (MP4, MOV, etc.)'),
       '#media_type_context' => 'video',
       '#ajax' => [
@@ -275,7 +300,7 @@ class AlbumForm extends FormBase {
     // Check if selected video media type has filefield_paths enabled.
     $selected_video_type =
     $form_state->getValue(['media_types', 'video_media_type'])
-    ?? ($album ? $album->video_media_type : '');
+    ?? ($depot ? $depot->video_media_type : '');
 
     $form['media_types']['video_wrapper']['warning_container'] = [
       '#type' => 'container',
@@ -314,13 +339,13 @@ class AlbumForm extends FormBase {
     ];
 
     // Container for directories content (updated via AJAX).
-    $form['directories']['content'] = $this->buildDirectoriesContent($form_state, $album);
+    $form['directories']['content'] = $this->buildDirectoriesContent($form_state, $depot);
 
     // Get Media Directories vocabulary ID.
     $vocabulary_id = $this->getMediaDirectoriesVocabulary();
 
     // Storage scheme selection only (public/private).
-    $base_dir_value = $album ? $album->base_directory : 'public://';
+    $base_dir_value = $depot ? $depot->base_directory : 'public://';
     $current_scheme = strpos($base_dir_value, 'private://') === 0 ? 'private' : 'public';
 
     $form['directories']['storage_scheme'] = [
@@ -338,7 +363,7 @@ class AlbumForm extends FormBase {
     // CASE 1: media_directories is ENABLED.
     if ($vocabulary_id) {
       // Get tree data for jstree.
-      $selected_tid = $album && !empty($album->media_directory) ? $album->media_directory : NULL;
+      $selected_tid = $depot && !empty($depot->media_directory) ? $depot->media_directory : NULL;
       $tree_data = $this->directoryService->getDirectoryTreeData($vocabulary_id, $selected_tid);
 
       // Container for jstree directory selector.
@@ -346,7 +371,7 @@ class AlbumForm extends FormBase {
         '#type' => 'container',
         '#attributes' => [
           'id' => 'media-drop-jstree-wrapper',
-          'style' => $this->bothHaveFFP($form_state, $album) ? 'display:none;' : '',
+          'style' => $this->bothHaveFFP($form_state, $depot) ? 'display:none;' : '',
         ],
       ];
 
@@ -400,7 +425,7 @@ class AlbumForm extends FormBase {
     // CASE 2: media_directories is DISABLED.
     else {
       // Base directory path (required when media_directories is disabled).
-      $base_path_value = $album ? str_replace(['public://', 'private://'], '', $album->base_directory) : 'media-drop';
+      $base_path_value = $depot ? str_replace(['public://', 'private://'], '', $depot->base_directory) : 'media-drop';
       $form['directories']['base_directory_path'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Base directory path'),
@@ -424,15 +449,15 @@ class AlbumForm extends FormBase {
         $form['directories']['filefield_paths_tokens'] = [
           '#type' => 'textfield',
           '#title' => $this->t('Path tokens (filefield_paths)'),
-          '#default_value' => $album ? $this->extractTokensFromPath($album->base_directory) : '',
+          '#default_value' => $depot ? $this->extractTokensFromPath($depot->base_directory) : '',
           '#maxlength' => 255,
           '#description' => $this->t('Optional: Use filefield_paths tokens to create dynamic subdirectories. Example: [date:custom:Y]-[date:custom:m] or [user:name]. Leave empty to use the base path as-is.'),
         ];
       }
     }
 
-    if ($album) {
-      $url = $this->requestStack->getCurrentRequest()->getSchemeAndHttpHost() . '/media-drop/' . $album->token;
+    if ($depot) {
+      $url = $this->requestStack->getCurrentRequest()->getSchemeAndHttpHost() . '/media-drop/' . $depot->token;
 
       $form['current_url'] = [
         '#type' => 'item',
@@ -452,15 +477,15 @@ class AlbumForm extends FormBase {
     $form['notifications'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Notifications'),
-      '#description' => $this->t('Configure email notifications for uploads to this album. <strong>Note:</strong> Access permissions are managed through Media Drop permissions in the Roles & Permissions settings, not here.'),
+      '#description' => $this->t('Configure email notifications for uploads to this depot. <strong>Note:</strong> Access permissions are managed through Media Drop permissions in the Roles & Permissions settings, not here.'),
       '#tree' => TRUE,
     ];
 
     $form['notifications']['enable_notifications'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Enable email notifications'),
-      '#default_value' => $album ? (int) $album->enable_notifications : FALSE,
-      '#description' => $this->t('Send email notifications when media is uploaded to this album.'),
+      '#default_value' => $depot ? (int) $depot->enable_notifications : FALSE,
+      '#description' => $this->t('Send email notifications when media is uploaded to this depot.'),
     ];
 
     // Load available roles.
@@ -469,8 +494,8 @@ class AlbumForm extends FormBase {
       '#type' => 'checkboxes',
       '#title' => $this->t('Notify users with these roles'),
       '#options' => $roles,
-      '#default_value' => $album && !empty($album->notification_roles) ? explode(',', $album->notification_roles) : [],
-      '#description' => $this->t('Select which user roles should receive email notifications about uploads to this album. This only controls who gets notified, not who can access the album.'),
+      '#default_value' => $depot && !empty($depot->notification_roles) ? explode(',', $depot->notification_roles) : [],
+      '#description' => $this->t('Select which user roles should receive email notifications about uploads to this depot. This only controls who gets notified, not who can access the depot.'),
       '#states' => [
         'visible' => [
           ':input[name="notifications[enable_notifications]"]' => ['checked' => TRUE],
@@ -481,7 +506,7 @@ class AlbumForm extends FormBase {
     $form['notifications']['notification_email'] = [
       '#type' => 'email',
       '#title' => $this->t('Additional notification email'),
-      '#default_value' => $album && !empty($album->notification_email) ? $album->notification_email : '',
+      '#default_value' => $depot && !empty($depot->notification_email) ? $depot->notification_email : '',
       '#description' => $this->t('Optional: Send notifications to this email address in addition to users with selected roles.'),
       '#states' => [
         'visible' => [
@@ -492,14 +517,14 @@ class AlbumForm extends FormBase {
 
     $form['status'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Album active'),
-      '#default_value' => $album ? $album->status : 1,
-      '#description' => $this->t('If unchecked, the album will no longer be accessible for drops.'),
+      '#title' => $this->t('Depot active'),
+      '#default_value' => $depot ? $depot->status : 1,
+      '#description' => $this->t('If unchecked, the depot will no longer be accessible for drops.'),
     ];
 
-    $form['album_id'] = [
+    $form['depot_id'] = [
       '#type' => 'hidden',
-      '#value' => $album_id,
+      '#value' => $depot_id,
     ];
 
     $form['actions'] = [
@@ -508,14 +533,14 @@ class AlbumForm extends FormBase {
 
     $form['actions']['submit'] = [
       '#type' => 'submit',
-      '#value' => $album ? $this->t('Update') : $this->t('Create'),
+      '#value' => $depot ? $this->t('Update') : $this->t('Create'),
       '#button_type' => 'primary',
     ];
 
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
-      '#url' => Url::fromRoute('media_drop.album_list'),
+      '#url' => Url::fromRoute('media_drop.depot_list'),
       '#attributes' => ['class' => ['button']],
     ];
 
@@ -553,13 +578,12 @@ class AlbumForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    // $album_id may be NULL for new albums.
-    $album_id = $form_state->getValue('album_id');
+    // $depot_id may be NULL for new depots.
+    $depot_id = $form_state->getValue('depot_id');
     $scheme = $form_state->getValue(['directories', 'storage_scheme']);
     $vocabulary_id = $this->getMediaDirectoriesVocabulary();
 
     $media_directory_value = '';
-    $auto_create_structure = 0;
 
     // CASE 1: media_directories is ENABLED.
     if ($vocabulary_id) {
@@ -601,7 +625,6 @@ class AlbumForm extends FormBase {
       'media_directory' => $media_directory_value,
       'default_media_type' => $form_state->getValue(['media_types', 'default_media_type']),
       'video_media_type' => $form_state->getValue(['media_types', 'video_media_type']),
-      'auto_create_structure' => $auto_create_structure,
       'enable_notifications' => $form_state->getValue(['notifications', 'enable_notifications']) ? 1 : 0,
       'notification_roles' => implode(',', array_filter($form_state->getValue(['notifications', 'notification_roles']))),
       'notification_email' => $form_state->getValue(['notifications', 'notification_email']) ?: '',
@@ -612,32 +635,32 @@ class AlbumForm extends FormBase {
     // Check if checkboxes are checked and disable filefield_paths if needed.
     $this->disableFileFieldPathsIfNeeded($form_state);
 
-    if ($album_id) {
+    if ($depot_id) {
       // Update.
       if ($form_state->getValue('regenerate_token')) {
         $values['token'] = Crypt::randomBytesBase64(32);
       }
 
-      $this->database->update('media_drop_albums')
+      $this->database->update('media_drop_depots')
         ->fields($values)
-        ->condition('id', $album_id)
+        ->condition('id', $depot_id)
         ->execute();
 
-      $this->messenger()->addStatus($this->t('The album has been updated.'));
+      $this->messenger()->addStatus($this->t('The depot has been updated.'));
     }
     else {
       // Create.
       $values['token'] = Crypt::randomBytesBase64(32);
       $values['created'] = $this->time->getRequestTime();
 
-      $this->database->insert('media_drop_albums')
+      $this->database->insert('media_drop_depots')
         ->fields($values)
         ->execute();
 
-      $this->messenger()->addStatus($this->t('The album has been created.'));
+      $this->messenger()->addStatus($this->t('The depot has been created.'));
     }
 
-    $form_state->setRedirect('media_drop.album_list');
+    $form_state->setRedirect('media_drop.depot_list');
   }
 
   /**
@@ -802,19 +825,19 @@ class AlbumForm extends FormBase {
    *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
-   * @param object|null $album
-   *   The album object (if editing).
+   * @param object|null $depot
+   *   The depot object (if editing).
    *
    * @return bool
    *   TRUE if both image and video media types have filefield_paths enabled.
    */
-  protected function bothHaveFFP(FormStateInterface $form_state, $album = NULL) {
+  protected function bothHaveFFP(FormStateInterface $form_state, $depot = NULL) {
     $selected_image_type = $form_state->getValue(['media_types', 'default_media_type'])
-      ?? ($album ? $album->default_media_type : '')
+      ?? ($depot ? $depot->default_media_type : '')
       ?? '';
 
     $selected_video_type = $form_state->getValue(['media_types', 'video_media_type'])
-      ?? ($album ? $album->video_media_type : '')
+      ?? ($depot ? $depot->video_media_type : '')
       ?? '';
 
     return ($selected_image_type && $this->hasFileFieldPathsEnabled($selected_image_type)) &&
@@ -826,13 +849,13 @@ class AlbumForm extends FormBase {
    *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
-   * @param object|null $album
-   *   The album object (if editing).
+   * @param object|null $depot
+   *   The depot object (if editing).
    *
    * @return array
    *   The directories content render array.
    */
-  protected function buildDirectoriesContent(FormStateInterface $form_state, $album = NULL) {
+  protected function buildDirectoriesContent(FormStateInterface $form_state, $depot = NULL) {
     // Always wrap content in the container with ID 'media-drop-directories-content'.
     $directories_content = [
       '#type' => 'container',
@@ -840,7 +863,7 @@ class AlbumForm extends FormBase {
     ];
 
     // Check if both media types have FFP enabled - blocking message.
-    if ($this->bothHaveFFP($form_state, $album)) {
+    if ($this->bothHaveFFP($form_state, $depot)) {
       $directories_content['message'] = [
         '#type' => 'markup',
         '#markup' => '<div class="messages messages--warning">' . $this->t('<strong>Directory selection disabled:</strong> One or more selected media types have filefield_paths enabled. File paths are managed automatically by filefield_paths configuration. To enable manual directory selection, disable filefield_paths on those media types above.') . '</div>',
@@ -849,13 +872,13 @@ class AlbumForm extends FormBase {
     }
 
     // Get media types and disable states with proper fallback.
-    // Try form_state first, then album (if editing), then default to empty string.
+    // Try form_state first, then depot (if editing), then default to empty string.
     $image_type = $form_state->getValue(['media_types', 'default_media_type'])
-      ?? ($album ? $album->default_media_type : '')
+      ?? ($depot ? $depot->default_media_type : '')
       ?? '';
 
     $video_type = $form_state->getValue(['media_types', 'video_media_type'])
-      ?? ($album ? $album->video_media_type : '')
+      ?? ($depot ? $depot->video_media_type : '')
       ?? '';
 
     $image_ffp_disable = $form_state->getValue(['media_types', 'default_wrapper', 'disable_filefield_paths_default'])
@@ -1071,6 +1094,33 @@ class AlbumForm extends FormBase {
         )
       );
     }
+  }
+
+  /**
+   * Load default depot values from media_album_av configuration.
+   *
+   * @return object
+   *   An object with default depot properties.
+   */
+  protected function getDefaultDepotValues() {
+    // Try to load configuration from media_album_av module.
+    $config = $this->configFactory->get('media_album_av.settings');
+
+    $defaults = new \stdClass();
+    $defaults->default_media_type = $config->get('prefered_media_type_photo') ?: NULL;
+    $defaults->video_media_type = $config->get('prefered_media_type_video') ?: NULL;
+
+    // Add other properties with default values.
+    $defaults->name = NULL;
+    $defaults->base_directory = 'public://';
+    $defaults->media_directory = NULL;
+    $defaults->token = NULL;
+    $defaults->status = 1;
+    $defaults->enable_notifications = 0;
+    $defaults->notification_roles = NULL;
+    $defaults->notification_email = NULL;
+
+    return $defaults;
   }
 
 }

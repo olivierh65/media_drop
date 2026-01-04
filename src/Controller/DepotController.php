@@ -10,9 +10,9 @@ use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Controller for the album list.
+ * Controller for the depot list.
  */
-class AlbumController extends ControllerBase {
+class DepotController extends ControllerBase {
 
   /**
    * The database connection.
@@ -29,7 +29,7 @@ class AlbumController extends ControllerBase {
   protected $entityTypeManager;
 
   /**
-   * Constructs a new AlbumController.
+   * Constructs a new DepotController.
    */
   public function __construct(Connection $database, EntityTypeManagerInterface $entity_type_manager) {
     $this->database = $database;
@@ -47,32 +47,32 @@ class AlbumController extends ControllerBase {
   }
 
   /**
-   * Lists all albums.
+   * Lists all depots.
    */
-  public function listAlbums() {
-    $albums = $this->database->select('media_drop_albums', 'a')
+  public function listDepots() {
+    $depots = $this->database->select('media_drop_depots', 'a')
       ->fields('a')
       ->orderBy('created', 'DESC')
       ->execute()
       ->fetchAll();
 
     $rows = [];
-    foreach ($albums as $album) {
-      $url = \Drupal::request()->getSchemeAndHttpHost() . '/media-drop/' . $album->token;
+    foreach ($depots as $depot) {
+      $url = \Drupal::request()->getSchemeAndHttpHost() . '/media-drop/' . $depot->token;
 
       // Count uploads.
       $upload_count = $this->database->select('media_drop_uploads', 'u')
-        ->condition('album_id', $album->id)
+        ->condition('depot_id', $depot->id)
         ->countQuery()
         ->execute()
         ->fetchField();
 
       $rows[] = [
-        'name' => $album->name,
-        'directory' => $album->base_directory,
+        'name' => $depot->name,
+        'directory' => $depot->base_directory,
         'media_types' => [
           'data' => [
-            '#markup' => $this->formatMediaTypes($album),
+            '#markup' => $this->formatMediaTypes($depot),
           ],
         ],
         'url' => [
@@ -83,19 +83,19 @@ class AlbumController extends ControllerBase {
           ],
         ],
         'uploads' => $upload_count,
-        'status' => $album->status ? $this->t('Active') : $this->t('Inactive'),
-        'created' => \Drupal::service('date.formatter')->format($album->created, 'short'),
+        'status' => $depot->status ? $this->t('Active') : $this->t('Inactive'),
+        'created' => \Drupal::service('date.formatter')->format($depot->created, 'short'),
         'operations' => [
           'data' => [
             '#type' => 'operations',
             '#links' => [
               'edit' => [
                 'title' => $this->t('Edit'),
-                'url' => Url::fromRoute('media_drop.album_edit', ['album_id' => $album->id]),
+                'url' => Url::fromRoute('media_drop.depot_edit', ['depot_id' => $depot->id]),
               ],
               'delete' => [
                 'title' => $this->t('Delete'),
-                'url' => Url::fromRoute('media_drop.album_delete', ['album_id' => $album->id]),
+                'url' => Url::fromRoute('media_drop.depot_delete', ['depot_id' => $depot->id]),
               ],
             ],
           ],
@@ -116,18 +116,18 @@ class AlbumController extends ControllerBase {
         $this->t('Operations'),
       ],
       '#rows' => $rows,
-      '#empty' => $this->t('No albums created yet. @link', [
+      '#empty' => $this->t('No depots created yet. @link', [
         '@link' => Link::fromTextAndUrl(
-          $this->t('Create an album'),
-          Url::fromRoute('media_drop.album_add')
+          $this->t('Create a depot'),
+          Url::fromRoute('media_drop.depot_add')
         )->toString(),
       ]),
     ];
 
     $build['add_link'] = [
       '#type' => 'link',
-      '#title' => $this->t('Add album'),
-      '#url' => Url::fromRoute('media_drop.album_add'),
+      '#title' => $this->t('Add depot'),
+      '#url' => Url::fromRoute('media_drop.depot_add'),
       '#attributes' => [
         'class' => ['button', 'button--primary', 'button--small'],
       ],
@@ -139,13 +139,13 @@ class AlbumController extends ControllerBase {
   }
 
   /**
-   * Formats the display of media types for an album.
+   * Formats the display of media types for a depot.
    */
-  protected function formatMediaTypes($album) {
+  protected function formatMediaTypes($depot) {
     $types = [];
 
-    if (!empty($album->default_media_type)) {
-      $media_type = $this->entityTypeManager->getStorage('media_type')->load($album->default_media_type);
+    if (!empty($depot->default_media_type)) {
+      $media_type = $this->entityTypeManager->getStorage('media_type')->load($depot->default_media_type);
       if ($media_type) {
         $types[] = '<strong>' . $this->t('Images') . ':</strong> ' . $media_type->label();
       }
@@ -154,8 +154,8 @@ class AlbumController extends ControllerBase {
       $types[] = '<em>' . $this->t('Images: default mapping') . '</em>';
     }
 
-    if (!empty($album->video_media_type)) {
-      $media__type = $this->entityTypeManager->getStorage('media_type')->load($album->video_media_type);
+    if (!empty($depot->video_media_type)) {
+      $media__type = $this->entityTypeManager->getStorage('media_type')->load($depot->video_media_type);
       if ($media_type) {
         $types[] = '<strong>' . $this->t('Videos') . ':</strong> ' . $media_type->label();
       }
@@ -165,8 +165,8 @@ class AlbumController extends ControllerBase {
     }
 
     // Add Media Directories directory if defined.
-    if (!empty($album->media_directory) && \Drupal::moduleHandler()->moduleExists('media_directories')) {
-      $term = $this->entityTypeManager->getStorage('taxonomy_term')->load($album->media_directory);
+    if (!empty($depot->media_directory) && \Drupal::moduleHandler()->moduleExists('media_directories')) {
+      $term = $this->entityTypeManager->getStorage('taxonomy_term')->load($depot->media_directory);
       if ($term) {
         $types[] = '<strong>' . $this->t('Directory') . ':</strong> ' . $term->getName();
       }

@@ -9,31 +9,31 @@
  * Implements hook_schema().
  */
 function media_drop_schema() {
-  $schema['media_drop_albums'] = [
-    'description' => 'Stores media drop albums',
+  $schema['media_drop_depots'] = [
+    'description' => 'Stores media drop depots',
     'fields' => [
       'id' => [
         'type' => 'serial',
         'not null' => TRUE,
-        'description' => 'Album ID',
+        'description' => 'Depot ID',
       ],
       'name' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
-        'description' => 'Album name',
+        'description' => 'Depot name',
       ],
       'base_directory' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
-        'description' => 'Base directory (e.g: public://albums/birthday2025)',
+        'description' => 'Base directory (e.g: public://depots/birthday2025)',
       ],
       'media_directory' => [
         'type' => 'varchar',
         'length' => 255,
         'not null' => FALSE,
-        'description' => 'Directory in media browser (e.g: /albums/birthday2025)',
+        'description' => 'Directory in media browser (e.g: /depots/birthday2025)',
       ],
       'default_media_type' => [
         'type' => 'varchar',
@@ -47,25 +47,36 @@ function media_drop_schema() {
         'not null' => FALSE,
         'description' => 'Default media type for videos',
       ],
-      'auto_create_structure' => [
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'default' => 1,
-        'description' => 'Automatically create taxonomy structure',
-      ],
       'token' => [
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
         'description' => 'Unique token for public URL',
       ],
+      'enable_notifications' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Enable email notifications (1=yes, 0=no)',
+      ],
+      'notification_roles' => [
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'Comma-separated list of role IDs to notify',
+      ],
+      'notification_email' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Additional email address to notify',
+      ],
       'status' => [
         'type' => 'int',
         'size' => 'tiny',
         'not null' => TRUE,
         'default' => 1,
-        'description' => 'Album status (1=active, 0=inactive)',
+        'description' => 'Depot status (1=active, 0=inactive)',
       ],
       'created' => [
         'type' => 'int',
@@ -134,10 +145,10 @@ function media_drop_schema() {
         'not null' => TRUE,
         'description' => 'Upload ID',
       ],
-      'album_id' => [
+      'depot_id' => [
         'type' => 'int',
         'not null' => TRUE,
-        'description' => 'Album ID',
+        'description' => 'Depot ID',
       ],
       'media_id' => [
         'type' => 'int',
@@ -177,7 +188,7 @@ function media_drop_schema() {
     ],
     'primary key' => ['id'],
     'indexes' => [
-      'album_id' => ['album_id'],
+      'depot_id' => ['depot_id'],
       'media_id' => ['media_id'],
       'uid' => ['uid'],
       'session_id' => ['session_id'],
@@ -191,189 +202,31 @@ function media_drop_schema() {
  * Implements hook_install().
  */
 function media_drop_install() {
-  // Create default mappings for common MIME types
-  $default_mappings = [
-    ['mime_type' => 'image/jpeg', 'media_type' => 'image', 'weight' => 0],
-    ['mime_type' => 'image/jpg', 'media_type' => 'image', 'weight' => 0],
-    ['mime_type' => 'image/png', 'media_type' => 'image', 'weight' => 0],
-    ['mime_type' => 'image/gif', 'media_type' => 'image', 'weight' => 0],
-    ['mime_type' => 'image/webp', 'media_type' => 'image', 'weight' => 0],
-    ['mime_type' => 'video/mp4', 'media_type' => 'video', 'weight' => 0],
-    ['mime_type' => 'video/mpeg', 'media_type' => 'video', 'weight' => 0],
-    ['mime_type' => 'video/quicktime', 'media_type' => 'video', 'weight' => 0],
-    ['mime_type' => 'video/x-msvideo', 'media_type' => 'video', 'weight' => 0],
-    ['mime_type' => 'video/webm', 'media_type' => 'video', 'weight' => 0],
-  ];
+  try {
+    // Create default mappings for common MIME types
+    $default_mappings = [
+      ['mime_type' => 'image/jpeg', 'media_type' => 'image', 'weight' => 0],
+      ['mime_type' => 'image/jpg', 'media_type' => 'image', 'weight' => 0],
+      ['mime_type' => 'image/png', 'media_type' => 'image', 'weight' => 0],
+      ['mime_type' => 'image/gif', 'media_type' => 'image', 'weight' => 0],
+      ['mime_type' => 'image/webp', 'media_type' => 'image', 'weight' => 0],
+      ['mime_type' => 'video/mp4', 'media_type' => 'video', 'weight' => 0],
+      ['mime_type' => 'video/mpeg', 'media_type' => 'video', 'weight' => 0],
+      ['mime_type' => 'video/quicktime', 'media_type' => 'video', 'weight' => 0],
+      ['mime_type' => 'video/x-msvideo', 'media_type' => 'video', 'weight' => 0],
+      ['mime_type' => 'video/webm', 'media_type' => 'video', 'weight' => 0],
+    ];
 
-  $connection = \Drupal::database();
-  foreach ($default_mappings as $mapping) {
-    $connection->insert('media_drop_mime_mapping')
-      ->fields($mapping)
-      ->execute();
-  }
-
-  // Create management view if VBO is installed
-  if (\Drupal::moduleHandler()->moduleExists('views_bulk_operations')) {
-    $module_path = \Drupal::service('extension.list.module')->getPath('media_drop');
-    $yaml_file = $module_path . '/config/optional/views.view.media_drop_manage.yml';
-
-    if (file_exists($yaml_file)) {
-      $view_config = \Drupal\Component\Serialization\Yaml::decode(file_get_contents($yaml_file));
-
-      // Update vocabulary_id if media_directories is enabled
-      if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
-        $config = \Drupal::config('media_directories.settings');
-        $vocabulary_id = $config->get('directory_taxonomy');
-
-        if ($vocabulary_id && isset($view_config['display']['default']['display_options']['filters']['directory'])) {
-          $view_config['display']['default']['display_options']['filters']['directory']['vid'] = $vocabulary_id;
-        }
-      }
-
-      $view = \Drupal::entityTypeManager()
-        ->getStorage('view')
-        ->create($view_config);
-
-      $view->save();
-
-      \Drupal::messenger()->addStatus(t('The media management view has been created.'));
+    $connection = \Drupal::database();
+    foreach ($default_mappings as $mapping) {
+      $connection->insert('media_drop_mime_mapping')
+        ->fields($mapping)
+        ->execute();
     }
+  }
+  catch (\Exception $e) {
+    \Drupal::logger('media_drop')->error('Error inserting default MIME mappings: @error', ['@error' => $e->getMessage()]);
   }
 
   \Drupal::messenger()->addStatus(t('Media Drop has been installed successfully. Configure it at Admin > Configuration > Media > Media Drop.'));
-}
-
-/**
- * Add media_directory and media type fields to albums table.
- */
-function media_drop_update_9001() {
-  $schema = \Drupal::database()->schema();
-
-  if (!$schema->fieldExists('media_drop_albums', 'media_directory')) {
-    $schema->addField('media_drop_albums', 'media_directory', [
-      'type' => 'varchar',
-      'length' => 255,
-      'not null' => FALSE,
-      'description' => 'Directory in media browser',
-    ]);
-  }
-
-  if (!$schema->fieldExists('media_drop_albums', 'default_media_type')) {
-    $schema->addField('media_drop_albums', 'default_media_type', [
-      'type' => 'varchar',
-      'length' => 128,
-      'not null' => FALSE,
-      'description' => 'Default media type for images',
-    ]);
-  }
-
-  if (!$schema->fieldExists('media_drop_albums', 'video_media_type')) {
-    $schema->addField('media_drop_albums', 'video_media_type', [
-      'type' => 'varchar',
-      'length' => 128,
-      'not null' => FALSE,
-      'description' => 'Default media type for videos',
-    ]);
-  }
-
-  return t('Added media type and directory fields to albums table.');
-}
-
-/**
- * Create media management view if VBO is installed.
- */
-function media_drop_update_9002() {
-  // Check if VBO is installed
-  if (!\Drupal::moduleHandler()->moduleExists('views_bulk_operations')) {
-    \Drupal::messenger()->addWarning(t('Install Views Bulk Operations to use bulk media management: composer require drupal/views_bulk_operations'));
-    return t('Views Bulk Operations is not installed.');
-  }
-
-  // View will be created automatically from config/optional
-  \Drupal::service('router.builder')->rebuild();
-
-  return t('Media management view enabled. Clear cache with drush cr.');
-}
-
-/**
- * Add auto_create_structure field to albums table.
- */
-function media_drop_update_9003() {
-  $schema = \Drupal::database()->schema();
-
-  if (!$schema->fieldExists('media_drop_albums', 'auto_create_structure')) {
-    $schema->addField('media_drop_albums', 'auto_create_structure', [
-      'type' => 'int',
-      'size' => 'tiny',
-      'not null' => TRUE,
-      'default' => 1,
-      'description' => 'Automatically create taxonomy structure (1=yes, 0=no)',
-    ]);
-  }
-
-  return t('Field auto_create_structure added to albums table.');
-}
-
-/**
- * Add notification fields to albums table.
- */
-function media_drop_update_9004() {
-  $schema = \Drupal::database()->schema();
-
-  if (!$schema->fieldExists('media_drop_albums', 'enable_notifications')) {
-    $schema->addField('media_drop_albums', 'enable_notifications', [
-      'type' => 'int',
-      'size' => 'tiny',
-      'not null' => TRUE,
-      'default' => 0,
-      'description' => 'Enable email notifications for this album (1=yes, 0=no)',
-    ]);
-  }
-
-  if (!$schema->fieldExists('media_drop_albums', 'notification_groups')) {
-    $schema->addField('media_drop_albums', 'notification_groups', [
-      'type' => 'text',
-      'not null' => FALSE,
-      'description' => 'Comma-separated list of group IDs to notify',
-    ]);
-  }
-
-  if (!$schema->fieldExists('media_drop_albums', 'notification_email')) {
-    $schema->addField('media_drop_albums', 'notification_email', [
-      'type' => 'varchar',
-      'length' => 255,
-      'not null' => FALSE,
-      'description' => 'Additional email address to notify',
-    ]);
-  }
-
-  return t('Notification fields added to albums table.');
-}
-
-/**
- * Rename notification_groups to notification_roles.
- */
-function media_drop_update_9005() {
-  $schema = \Drupal::database()->schema();
-  $connection = \Drupal::database();
-
-  // If old field exists, rename it.
-  if ($schema->fieldExists('media_drop_albums', 'notification_groups')) {
-    // Add new field if it doesn't exist.
-    if (!$schema->fieldExists('media_drop_albums', 'notification_roles')) {
-      $schema->addField('media_drop_albums', 'notification_roles', [
-        'type' => 'text',
-        'not null' => FALSE,
-        'description' => 'Comma-separated list of role IDs to notify',
-      ]);
-    }
-
-    // Copy data from old field to new field if data exists.
-    $connection->query('UPDATE {media_drop_albums} SET notification_roles = notification_groups WHERE notification_groups IS NOT NULL AND notification_groups != \'\'');
-
-    // Drop old field.
-    $schema->dropField('media_drop_albums', 'notification_groups');
-  }
-
-  return t('Notification field renamed from groups to roles.');
 }

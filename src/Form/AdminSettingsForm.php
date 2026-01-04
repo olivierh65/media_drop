@@ -32,28 +32,28 @@ class AdminSettingsForm extends ConfigFormBase {
     $config = $this->config('media_drop.settings');
 
     $form['intro'] = [
-      '#markup' => '<p>' . $this->t('Configure the general settings for Media Drop. To manage albums and MIME type mappings, use the tabs above.') . '</p>',
+      '#markup' => '<p>' . $this->t('Configure the general settings for Media Drop. To manage depots and MIME type mappings, use the tabs above.') . '</p>',
     ];
 
     $form['tabs'] = [
       '#type' => 'vertical_tabs',
     ];
 
-    // Albums tab.
-    $form['albums_tab'] = [
+    // Depots tab.
+    $form['depots_tab'] = [
       '#type' => 'details',
-      '#title' => $this->t('Albums'),
+      '#title' => $this->t('Depots'),
       '#group' => 'tabs',
     ];
 
-    $form['albums_tab']['albums_link'] = [
+    $form['depots_tab']['depots_link'] = [
       '#type' => 'link',
-      '#title' => $this->t('Manage albums'),
-      '#url' => Url::fromRoute('media_drop.album_list'),
+      '#title' => $this->t('Manage depots'),
+      '#url' => Url::fromRoute('media_drop.depot_list'),
       '#attributes' => [
         'class' => ['button', 'button--primary'],
       ],
-      '#prefix' => '<p>' . $this->t('Create and manage your drop albums.') . '</p>',
+      '#prefix' => '<p>' . $this->t('Create and manage your drop depots.') . '</p>',
     ];
 
     // MIME Mappings tab.
@@ -119,7 +119,7 @@ class AdminSettingsForm extends ConfigFormBase {
 
     $form['security_tab']['token_lifetime'] = [
       '#type' => 'select',
-      '#title' => $this->t('Album token lifetime'),
+      '#title' => $this->t('Depot token lifetime'),
       '#options' => [
         '0' => $this->t('Unlimited'),
         '2592000' => $this->t('30 days'),
@@ -128,7 +128,7 @@ class AdminSettingsForm extends ConfigFormBase {
         '31536000' => $this->t('1 year'),
       ],
       '#default_value' => $config->get('token_lifetime') ?? '0',
-      '#description' => $this->t('After this period, album URLs will be invalid and will need to be regenerated.'),
+      '#description' => $this->t('After this period, depot URLs will be invalid and will need to be regenerated.'),
     ];
 
     return parent::buildForm($form, $form_state);

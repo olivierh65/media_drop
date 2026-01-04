@@ -14,35 +14,35 @@ media_drop.taxonomy_autocomplete:
     _access: 'TRUE'
   methods: [GET]
 
-media_drop.album_list:
-  path: '/admin/config/media/media-drop/albums'
+media_drop.depot_list:
+  path: '/admin/config/media/media-drop/depots'
   defaults:
-    _controller: '\Drupal\media_drop\Controller\AlbumController::listAlbums'
-    _title: 'Albums'
+    _controller: '\Drupal\media_drop\Controller\DepotController::listDepots'
+    _title: 'Depots'
   requirements:
     _permission: 'administer media drop'
 
-media_drop.album_add:
-  path: '/admin/config/media/media-drop/albums/add'
+media_drop.depot_add:
+  path: '/admin/config/media/media-drop/depots/add'
   defaults:
-    _form: '\Drupal\media_drop\Form\AlbumForm'
-    _title: 'Add an album'
+    _form: '\Drupal\media_drop\Form\DepotForm'
+    _title: 'Add a depot'
   requirements:
     _permission: 'administer media drop'
 
-media_drop.album_edit:
-  path: '/admin/config/media/media-drop/albums/{album_id}/edit'
+media_drop.depot_edit:
+  path: '/admin/config/media/media-drop/depots/{depot_id}/edit'
   defaults:
-    _form: '\Drupal\media_drop\Form\AlbumForm'
-    _title: 'Edit an album'
+    _form: '\Drupal\media_drop\Form\DepotForm'
+    _title: 'Edit a depot'
   requirements:
     _permission: 'administer media drop'
 
-media_drop.album_delete:
-  path: '/admin/config/media/media-drop/albums/{album_id}/delete'
+media_drop.depot_delete:
+  path: '/admin/config/media/media-drop/depots/{depot_id}/delete'
   defaults:
-    _form: '\Drupal\media_drop\Form\AlbumDeleteForm'
-    _title: 'Delete an album'
+    _form: '\Drupal\media_drop\Form\DepotDeleteForm'
+    _title: 'Delete a depot'
   requirements:
     _permission: 'administer media drop'
 
@@ -56,7 +56,7 @@ media_drop.mime_mapping:
 media_drop.ajax_check_filefield_paths:
   path: '/admin/config/media/media-drop/ajax/check-filefield-paths'
   defaults:
-    _controller: '\Drupal\media_drop\Controller\AlbumController::checkFileFieldPathsAjax'
+    _controller: '\Drupal\media_drop\Controller\DepotController::checkFileFieldPathsAjax'
   requirements:
     _permission: 'administer media drop'
     _access: 'TRUE'
@@ -78,7 +78,7 @@ media_drop.create_manage_view:
     _permission: 'administer media drop'
 
 media_drop.upload:
-  path: '/media-drop/{album_token}'
+  path: '/media-drop/{depot_token}'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::uploadPage'
     _title: 'Drop media'
@@ -86,7 +86,7 @@ media_drop.upload:
     _access: 'TRUE'
 
 media_drop.ajax_upload:
-  path: '/media-drop/{album_token}/ajax-upload'
+  path: '/media-drop/{depot_token}/ajax-upload'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::ajaxUpload'
   requirements:
@@ -95,16 +95,16 @@ media_drop.ajax_upload:
     no_cache: TRUE
 
 media_drop.ajax_create_folder:
-  path: '/media-drop/{album_token}/create-folder'
+  path: '/media-drop/{depot_token}/create-folder'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::createFolder'
   requirements:
-    _permission: 'create album folders'
+    _permission: 'create depot folders'
   options:
     no_cache: TRUE
 
 media_drop.ajax_list_media:
-  path: '/media-drop/{album_token}/list-media'
+  path: '/media-drop/{depot_token}/list-media'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::listMedia'
   requirements:
@@ -113,7 +113,7 @@ media_drop.ajax_list_media:
     no_cache: TRUE
 
 media_drop.ajax_delete_media:
-  path: '/media-drop/{album_token}/delete-media/{media_id}'
+  path: '/media-drop/{depot_token}/delete-media/{media_id}'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::deleteMedia'
   requirements:
@@ -123,35 +123,35 @@ media_drop.ajax_delete_media:
     no_cache: TRUE
 
 media_drop.ajax_list_folders:
-  path: '/media-drop/{album_token}/list-folders'
+  path: '/media-drop/{depot_token}/list-folders'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::listFolders'
     _title: 'List Folders'
   requirements:
-    _permission: 'upload media to albums'
+    _permission: 'upload media to depots'
   options:
     parameters:
-      album_token:
+      depot_token:
         type: string
 
 media_drop.ajax_trigger_notification:
-  path: '/media-drop/{album_token}/trigger-notification'
+  path: '/media-drop/{depot_token}/trigger-notification'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::triggerNotification'
     _title: 'Trigger Notification'
   requirements:
-    _permission: 'upload media to albums'
+    _permission: 'upload media to depots'
   options:
     no_cache: TRUE
   methods: [POST]
 
 media_drop.ajax_check_duplicate:
-  path: '/media-drop/{album_token}/check-duplicate'
+  path: '/media-drop/{depot_token}/check-duplicate'
   defaults:
     _controller: '\Drupal\media_drop\Controller\UploadController::checkDuplicate'
     _title: 'Check Duplicate'
   requirements:
-    _permission: 'upload media to albums'
+    _permission: 'upload media to depots'
   options:
     no_cache: TRUE
   methods: [POST]

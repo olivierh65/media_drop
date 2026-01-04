@@ -1,8 +1,8 @@
-media_drop.album_add:
-  route_name: media_drop.album_add
-  title: 'Add album'
+media_drop.depot_add:
+  route_name: media_drop.depot_add
+  title: 'Add depot'
   appears_on:
-    - media_drop.album_list
+    - media_drop.depot_list
 
 media_drop.mime_mapping_add:
   route_name: media_drop.mime_mapping

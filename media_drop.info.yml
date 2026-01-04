@@ -1,6 +1,6 @@
 name: Media Drop
 type: module
-description: 'Allows users to bulk upload photos and videos into organized albums with media type management'
+description: 'Allows users to bulk upload photos and videos into organized depots with media type management'
 core_version_requirement: ^10 || ^11
 package: Media
 dependencies:

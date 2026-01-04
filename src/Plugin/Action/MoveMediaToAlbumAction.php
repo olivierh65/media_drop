@@ -8,15 +8,16 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\field\Entity\FieldConfig;
+use Drupal\media_taxonomy_service\Service\DirectoryService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Url;
 
 /**
- * Adds media entities to an album node with media field values.
+ * Adds media entities to an depot node with media field values.
  *
  * @Action(
  *   id = "media_drop_move_to_album",
- *   label = @Translation("Move to album"),
+ *   label = @Translation("Move to Album"),
  *   type = "media",
  *   category = @Translation("Media Drop"),
  *   confirm = TRUE
@@ -33,18 +34,25 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   protected $entityTypeManager;
 
   /**
-   * Media entities to add to album.
+   * The taxonomy service.
+   *
+   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   */
+  protected $taxonomyService;
+
+  /**
+   * Media entities to add to depot.
    *
    * @var array
    */
   protected $mediaEntities = [];
 
   /**
-   * The selected album node.
+   * The selected depot node.
    *
    * @var \Drupal\node\NodeInterface
    */
-  protected $albumNode;
+  protected $depotNode;
 
   /**
    * Selected media from VBO action.
@@ -54,18 +62,19 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   protected $selectedMedia = [];
 
   /**
-   * Cache for used directories in album.
+   * Cache for used directories in depot.
    *
    * @var array
    */
   protected $usedDirectoriesCache = [];
 
   /**
-   * Constructs an AddMediaToAlbumAction object.
+   * Constructs an AddMediaToDepotAction object.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, DirectoryService $taxonomy_service) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->entityTypeManager = $entity_type_manager;
+    $this->taxonomyService = $taxonomy_service;
     $this->selectedMedia = [];
   }
 
@@ -77,7 +86,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     $configuration,
     $plugin_id,
     $plugin_definition,
-    $container->get('entity_type.manager')
+    $container->get('entity_type.manager'),
+    $container->get('media_drop.taxonomy_service')
     );
   }
 
@@ -93,9 +103,9 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    */
   public function defaultConfiguration() {
     return [
-      'album_id' => NULL,
+      'depot_id' => NULL,
       'directory_tid' => NULL,
-      'album_field_values' => [],
+      'depot_field_values' => [],
     ];
   }
 
@@ -134,10 +144,10 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
     $form['#tree'] = TRUE;
 
-    // Step 1: Select Album and Directory.
+    // Step 1: Select Depot and Directory.
     $form['step_1'] = [
       '#type' => 'details',
-      '#title' => $this->t('Step 1: Select Album and Directory'),
+      '#title' => $this->t('Step 1: Select Depot and Directory'),
       '#open' => TRUE,
     ];
 
@@ -147,21 +157,21 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       '</div>',
     ];
 
-    // Album selection.
-    $album_bundles = [];
-    $album_options = $this->getAlbumOptions($album_bundles);
+    // Depot selection.
+    $depot_bundles = [];
+    $depot_options = $this->getDepotOptions($depot_bundles);
 
-    $form['step_1']['album_id'] = [
+    $form['step_1']['depot_id'] = [
       '#type' => 'select',
-      '#title' => $this->t('Select album'),
-      '#description' => $this->t('Select an existing album (node) with media fields to add the selected media to.'),
-      '#options' => $album_options,
+      '#title' => $this->t('Select depot'),
+      '#description' => $this->t('Select an existing depot (node) with media fields to add the selected media to.'),
+      '#options' => $depot_options,
       '#required' => TRUE,
-      '#default_value' => $this->configuration['album_id'] ?? '',
-      '#empty_option' => $this->t('- Select an album -'),
+      '#default_value' => $this->configuration['depot_id'] ?? '',
+      '#empty_option' => $this->t('- Select an depot -'),
       '#ajax' => [
-        'callback' => [$this, 'ajaxUpdateAlbumFields'],
-        'wrapper' => 'album-fields-wrapper',
+        'callback' => [$this, 'ajaxUpdateDepotFields'],
+        'wrapper' => 'depot-fields-wrapper',
         'event' => 'change',
       ],
     ];
@@ -169,25 +179,25 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     // Wrapper for AJAX updates.
     $form['step_2_wrapper'] = [
       '#type' => 'container',
-      '#attributes' => ['id' => 'album-fields-wrapper'],
+      '#attributes' => ['id' => 'depot-fields-wrapper'],
     ];
 
     // Directory selection has been moved to Step 2.
-    // Step 2: Configure Album Fields.
-    if ($form_state->getValue(['step_1', 'album_id'])) {
-      $album_id = $form_state->getValue(['step_1', 'album_id']);
-      $this->albumNode = $this->entityTypeManager->getStorage('node')->load($album_id);
+    // Step 2: Configure Depot Fields.
+    if ($form_state->getValue(['step_1', 'depot_id'])) {
+      $depot_id = $form_state->getValue(['step_1', 'depot_id']);
+      $this->depotNode = $this->entityTypeManager->getStorage('node')->load($depot_id);
 
-      if ($this->albumNode) {
+      if ($this->depotNode) {
         // Build step_2 inside wrapper.
-        $form['step_2_wrapper']['step_2'] = $this->buildAlbumConfigurationForm([]);
+        $form['step_2_wrapper']['step_2'] = $this->buildDepotConfigurationForm([]);
       }
     }
     else {
-      // Return hidden step_2 if no album selected.
+      // Return hidden step_2 if no depot selected.
       $form['step_2_wrapper']['step_2'] = [
         '#type' => 'details',
-        '#title' => $this->t('Step 2: Configure Album Fields'),
+        '#title' => $this->t('Step 2: Configure Depot Fields'),
         '#open' => TRUE,
         '#tree' => TRUE,
         '#access' => FALSE,
@@ -202,11 +212,11 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       ],
     ];
 
-    // Add states to disable submit button until an album is selected.
-    // Submit button is enabled only when album_id is not empty.
+    // Add states to disable submit button until an depot is selected.
+    // Submit button is enabled only when depot_id is not empty.
     $form['actions']['submit']['#states'] = [
       'disabled' => [
-        ':input[name="step_1[album_id]"]' => ['value' => ''],
+        ':input[name="step_1[depot_id]"]' => ['value' => ''],
       ],
     ];
 
@@ -214,7 +224,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
-   * Get album options for select widget.
+   * Get depot options for select widget.
    *
    * @param array $bundles
    *   Array of node bundle machine names (unused, kept for signature).
@@ -222,7 +232,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * @return array
    *   Array of node IDs keyed by node title.
    */
-  protected function getAlbumOptions(array $bundles) {
+  protected function getDepotOptions(array $bundles) {
     $options = [];
 
     try {
@@ -262,7 +272,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     catch (\Exception $e) {
       // Log error but don't crash.
       \Drupal::logger('media_drop')->warning(
-      'Error loading album options: @message',
+      'Error loading depot options: @message',
       [
         '@message' => $e->getMessage(),
       ]
@@ -358,10 +368,10 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
-   * Get media entities that are incompatible with the selected album.
+   * Get media entities that are incompatible with the selected depot.
    *
    * @param \Drupal\node\NodeInterface $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array of incompatible media entities.
@@ -373,7 +383,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       return $incompatible;
     }
 
-    // Get all media reference fields on the album node.
+    // Get all media reference fields on the depot node.
     try {
       $query = $this->entityTypeManager->getStorage('field_config')
         ->getQuery()
@@ -481,10 +491,10 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
-   * Get media field configurations from the media type of items in the album.
+   * Get media field configurations from the media type of items in the depot.
    *
    * @param \Drupal\node\NodeInterface $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array of media field configs with their settings.
@@ -550,7 +560,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * Get media bundle types present in the node's media fields.
    *
    * @param \Drupal\node\NodeInterface $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array of unique media bundle names.
@@ -610,15 +620,15 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
-   * Get all media IDs already present in the album node.
+   * Get all media IDs already present in the depot node.
    *
    * @param \Drupal\node\NodeInterface $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array of media IDs with their labels, indexed by media ID.
    */
-  protected function getMediaIdsInAlbum($node) {
+  protected function getMediaIdsInDepot($node) {
     $existing_media = [];
 
     try {
@@ -661,7 +671,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     }
     catch (\Exception $e) {
       \Drupal::logger('media_drop')
-        ->warning('Error getting media IDs in album: @message', [
+        ->warning('Error getting media IDs in depot: @message', [
           '@message' => $e->getMessage(),
         ]);
     }
@@ -765,8 +775,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       ->getStorage('taxonomy_term')
       ->loadByProperties(['vid' => $vocabulary_id]);
 
-    // Get directories already used in the album and cache them.
-    $this->usedDirectoriesCache = $this->getUsedDirectoriesInAlbum($this->albumNode);
+    // Get directories already used in the depot and cache them.
+    $this->usedDirectoriesCache = $this->getUsedDirectoriesInDepot($this->depotNode);
 
     \Drupal::logger('media_drop')->notice('DEBUG buildDirectorySelector - usedDirectoriesCache: @dirs', [
       '@dirs' => implode(', ', $this->usedDirectoriesCache),
@@ -871,20 +881,20 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       '#title' => $this->t('Move to directory'),
       '#options' => $options,
       '#default_value' => $this->configuration['directory_tid'] ?? 0,
-      '#description' => $this->t('Optionally move the selected media to this directory. Directories marked with ★ are currently used in this album. Indentation shows the directory hierarchy.'),
+      '#description' => $this->t('Optionally move the selected media to this directory. Directories marked with ★ are currently used in this depot. Indentation shows the directory hierarchy.'),
     ];
   }
 
   /**
-   * Get directories already used by media in the album node.
+   * Get directories already used by media in the depot node.
    *
    * @param \Drupal\node\NodeInterface|null $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array of directory taxonomy term IDs.
    */
-  protected function getUsedDirectoriesInAlbum($node) {
+  protected function getUsedDirectoriesInDepot($node) {
     $directories = [];
 
     if (!$node) {
@@ -975,7 +985,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       }
     }
 
-    \Drupal::logger('media_drop')->notice('Found used directories in album @nid: @dirs', [
+    \Drupal::logger('media_drop')->notice('Found used directories in depot @nid: @dirs', [
       '@nid' => $node->id(),
       '@dirs' => implode(', ', $directories),
     ]);
@@ -987,12 +997,12 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * Get union of editable fields from all acceptable media types.
    *
    * @param \Drupal\node\NodeInterface $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array of field configs keyed by field name (union of all media types).
    */
-  protected function getAlbumEditableFields($node) {
+  protected function getDepotEditableFields($node) {
     $editable_fields = [];
 
     try {
@@ -1115,7 +1125,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     }
     catch (\Exception $e) {
       \Drupal::logger('media_drop')
-        ->warning('Error getting album editable fields: @message', [
+        ->warning('Error getting depot editable fields: @message', [
           '@message' => $e->getMessage(),
         ]);
     }
@@ -1158,7 +1168,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * fields across different media types are presented as one.
    *
    * @param \Drupal\node\NodeInterface $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array grouped by designation key, each containing:
@@ -1166,7 +1176,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    *   - 'field_config': First field config (representative)
    *   - 'field_names': Array of actual field names across all media types
    */
-  protected function getAlbumEditableFieldsGrouped($node) {
+  protected function getDepotEditableFieldsGrouped($node) {
     $grouped_fields = [];
 
     try {
@@ -1277,7 +1287,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     }
     catch (\Exception $e) {
       \Drupal::logger('media_drop')
-        ->warning('Error getting album editable fields grouped: @message', [
+        ->warning('Error getting depot editable fields grouped: @message', [
           '@message' => $e->getMessage(),
         ]);
     }
@@ -1410,7 +1420,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * - 'field_names': Array of actual field names where this metadata can be stored.
    *
    * @param \Drupal\node\NodeInterface $node
-   *   The album node.
+   *   The depot node.
    *
    * @return array
    *   Array with 'title' and 'alt' keys, each containing field_names array.
@@ -1517,7 +1527,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
-   * Build the album configuration form section.
+   * Build the depot configuration form section.
    *
    * @param array $wrapper
    *   Unused, kept for compatibility.
@@ -1525,8 +1535,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * @return array
    *   The step_2 element ready to add to main form.
    */
-  protected function buildAlbumConfigurationForm(array $wrapper) {
-    if (!$this->albumNode) {
+  protected function buildDepotConfigurationForm(array $wrapper) {
+    if (!$this->depotNode) {
       return [
         '#type' => 'container',
         '#access' => FALSE,
@@ -1537,10 +1547,10 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
     /*  $step_2 = [
     '#type' => 'details',
-    '#title' => $this->t('Step 2: Configure Album Fields'),
+    '#title' => $this->t('Step 2: Configure Depot Fields'),
     '#open' => TRUE,
     '#tree' => TRUE,
-    '#attributes' => ['id' => 'album-fields-wrapper'],
+    '#attributes' => ['id' => 'depot-fields-wrapper'],
     '#access' => TRUE,
     ]; */
 
@@ -1549,7 +1559,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
     $step_2['info'] = [
       '#markup' => '<div class="messages messages--status">' .
-      $this->t('Album: <strong>@album_title</strong>', ['@album_title' => $this->albumNode->label()]) .
+      $this->t('Depot: <strong>@depot_title</strong>', ['@depot_title' => $this->depotNode->label()]) .
       '</div>',
     ];
 
@@ -1561,8 +1571,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       '#value' => '1',
     ];
 
-    // Show existing media in album and which ones will be added.
-    $existing_media = $this->getMediaIdsInAlbum($this->albumNode);
+    // Show existing media in depot and which ones will be added.
+    $existing_media = $this->getMediaIdsInDepot($this->depotNode);
     $new_media_count = 0;
     $duplicate_count = 0;
     $new_media_list = '';
@@ -1580,7 +1590,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     }
 
     // Show summary of media processing status.
-    $not_processed_count = $duplicate_count + count($this->getIncompatibleMedia($this->albumNode));
+    $not_processed_count = $duplicate_count + count($this->getIncompatibleMedia($this->depotNode));
     if ($not_processed_count > 0) {
       $step_2['summary_warning'] = [
         '#markup' => '<div class="messages messages--warning">' .
@@ -1589,7 +1599,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       ];
     }
 
-    // Show media already in album (in collapsible details).
+    // Show media already in depot (in collapsible details).
     if (!empty($existing_media)) {
       $existing_list = '';
       foreach ($existing_media as $media_id => $label) {
@@ -1597,17 +1607,17 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       }
       $step_2['existing_media'] = [
         '#type' => 'details',
-        '#title' => $this->t('Media already in album (@count)', ['@count' => count($existing_media)]),
+        '#title' => $this->t('Media already in depot (@count)', ['@count' => count($existing_media)]),
         '#open' => FALSE,
         '#markup' => '<ul>' . $existing_list . '</ul>',
       ];
     }
 
-    // Show duplicates (media already in album that were selected).
+    // Show duplicates (media already in depot that were selected).
     if ($duplicate_count > 0) {
       $step_2['duplicates'] = [
         '#type' => 'details',
-        '#title' => $this->t('Selected media already in album - will be skipped (@count)', ['@count' => $duplicate_count]),
+        '#title' => $this->t('Selected media already in depot - will be skipped (@count)', ['@count' => $duplicate_count]),
         '#open' => FALSE,
         '#markup' => '<ul>' . $duplicate_list . '</ul>',
       ];
@@ -1617,14 +1627,14 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     if ($new_media_count > 0) {
       $step_2['new_media'] = [
         '#type' => 'details',
-        '#title' => $this->t('✓ Media to be added to the album (@count)', ['@count' => $new_media_count]),
+        '#title' => $this->t('✓ Media to be added to the depot (@count)', ['@count' => $new_media_count]),
         '#open' => TRUE,
         '#markup' => '<ul>' . $new_media_list . '</ul>',
       ];
     }
 
     // Show media compatibility info (in collapsible details).
-    $incompatible_media = $this->getIncompatibleMedia($this->albumNode);
+    $incompatible_media = $this->getIncompatibleMedia($this->depotNode);
     if (!empty($incompatible_media)) {
       $incompatible_list = '';
       foreach ($incompatible_media as $media) {
@@ -1646,52 +1656,52 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       }
     }
 
-    // Show album editable fields - grouped by designation.
-    $grouped_album_fields = $this->getAlbumEditableFieldsGrouped($this->albumNode);
+    // Show depot editable fields - grouped by designation.
+    $grouped_depot_fields = $this->getDepotEditableFieldsGrouped($this->depotNode);
 
-    if (!empty($grouped_album_fields)) {
-      $step_2['album_fields'] = [
+    if (!empty($grouped_depot_fields)) {
+      $step_2['depot_fields'] = [
         '#type' => 'details',
         '#title' => $this->t('Media Type Fields (from Media Field)'),
         '#open' => TRUE,
         '#tree' => TRUE,
       ];
 
-      foreach ($grouped_album_fields as $designation_key => $field_group) {
+      foreach ($grouped_depot_fields as $designation_key => $field_group) {
         $field_config = $field_group['field_config'];
         $field_label = $field_group['designation'];
         $field_names = $field_group['field_names'];
 
-        $step_2['album_fields'][$designation_key] = [
+        $step_2['depot_fields'][$designation_key] = [
           '#type' => 'details',
           '#title' => $field_label,
           '#open' => FALSE,
         ];
 
-        $default_value = $this->configuration['album_field_values'][$designation_key] ?? NULL;
+        $default_value = $this->configuration['depot_field_values'][$designation_key] ?? NULL;
 
-        $step_2['album_fields'][$designation_key]['value'] = $this->buildFieldWidget(
+        $step_2['depot_fields'][$designation_key]['value'] = $this->buildFieldWidget(
           $field_config,
           $default_value
         );
 
         // Store the field names that belong to this designation for later processing.
-        $step_2['album_fields'][$designation_key]['field_names'] = [
+        $step_2['depot_fields'][$designation_key]['field_names'] = [
           '#type' => 'value',
           '#value' => $field_names,
         ];
 
         $field_names_display = implode(', ', $field_names);
-        $step_2['album_fields'][$designation_key]['description'] = [
+        $step_2['depot_fields'][$designation_key]['description'] = [
           '#markup' => '<p><em>' . $this->t('This value will be applied to all selected media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
         ];
       }
     }
 
     // Get metadata fields available for this media type.
-    $metadata_fields = $this->getMediaMetadataFields($this->albumNode);
+    $metadata_fields = $this->getMediaMetadataFields($this->depotNode);
 
-    // Media metadata fields (Title, Alt) - treated like album fields with field_names.
+    // Media metadata fields (Title, Alt) - treated like depot fields with field_names.
     $step_2['media_metadata'] = [
       '#type' => 'details',
       '#title' => $this->t('Media Metadata'),
@@ -1787,7 +1797,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
-   * AJAX callback to update album fields when album selection changes.
+   * AJAX callback to update depot fields when depot selection changes.
    *
    * @param array $form
    *   The form array.
@@ -1797,7 +1807,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    * @return array
    *   The updated form element.
    */
-  public function ajaxUpdateAlbumFields(array $form, FormStateInterface $form_state) {
+  public function ajaxUpdateDepotFields(array $form, FormStateInterface $form_state) {
     // Force form rebuild so Drupal recalculates all form values.
     $form_state->setRebuild(TRUE);
 
@@ -1826,7 +1836,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       }
     }
 
-    $this->configuration['album_id'] = $values['step_1']['album_id'] ?? NULL;
+    $this->configuration['depot_id'] = $values['step_1']['depot_id'] ?? NULL;
 
     // Get directory_tid from step_2 inside wrapper.
     $directory_tid = NULL;
@@ -1843,14 +1853,14 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
     }
     $this->configuration['directory_tid'] = $directory_tid;
 
-    // Store album field values.
-    if (isset($values['step_2_wrapper']['step_2']['album_fields'])) {
-      if (!isset($this->configuration['album_field_values'])) {
-        $this->configuration['album_field_values'] = [];
+    // Store depot field values.
+    if (isset($values['step_2_wrapper']['step_2']['depot_fields'])) {
+      if (!isset($this->configuration['depot_field_values'])) {
+        $this->configuration['depot_field_values'] = [];
       }
-      $this->configuration['album_field_values'] = array_merge(
-        $this->configuration['album_field_values'],
-        $values['step_2_wrapper']['step_2']['album_fields']
+      $this->configuration['depot_field_values'] = array_merge(
+        $this->configuration['depot_field_values'],
+        $values['step_2_wrapper']['step_2']['depot_fields']
       );
     }
 
@@ -1884,24 +1894,24 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       return;
     }
 
-    if (!$this->albumNode) {
-      $this->albumNode = $this->entityTypeManager
+    if (!$this->depotNode) {
+      $this->depotNode = $this->entityTypeManager
         ->getStorage('node')
-        ->load($this->configuration['album_id']);
+        ->load($this->configuration['depot_id']);
     }
 
-    if (!$this->albumNode) {
+    if (!$this->depotNode) {
       \Drupal::messenger()->addError(
-        $this->t('Album node not found.')
+        $this->t('Depot node not found.')
       );
       return;
     }
 
-    // Check if media is already in the album - skip if it is.
-    $existing_media = $this->getMediaIdsInAlbum($this->albumNode);
+    // Check if media is already in the depot - skip if it is.
+    $existing_media = $this->getMediaIdsInDepot($this->depotNode);
     $media_id = $entity->id();
     if (isset($existing_media[$media_id])) {
-      \Drupal::logger('media_drop')->info('Skipping media @mid - already in album', [
+      \Drupal::logger('media_drop')->info('Skipping media @mid - already in depot', [
         '@mid' => $media_id,
       ]);
       return;
@@ -1926,6 +1936,9 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
           '@mid' => $entity->id(),
         ]);
       }
+
+      // Move the physical files to the corresponding directory.
+      $this->taxonomyService->moveMediaFilesToDirectory($entity, $this->configuration['directory_tid'], TRUE);
     }
     else {
       \Drupal::logger('media_drop')->notice('execute() - No directory_tid configured (value: @val)', [
@@ -1933,14 +1946,14 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       ]);
     }
 
-    // Add media to album node fields.
+    // Add media to depot node fields.
     $media_field_found = FALSE;
 
     try {
       $query = $this->entityTypeManager->getStorage('field_config')
         ->getQuery()
         ->condition('entity_type', 'node')
-        ->condition('bundle', $this->albumNode->bundle());
+        ->condition('bundle', $this->depotNode->bundle());
 
       $field_ids = $query->execute();
       $field_configs = [];
@@ -1967,7 +1980,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
           $target_bundles = $field_config->getSetting('handler_settings')['target_bundles'] ?? [];
 
           if (empty($target_bundles) || in_array($entity->bundle(), $target_bundles)) {
-            $this->addMediaToField($this->albumNode, $field_name, $entity);
+            $this->addMediaToField($this->depotNode, $field_name, $entity);
             break;
           }
         }
@@ -1976,22 +1989,22 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
     if (!$media_field_found) {
       \Drupal::messenger()->addWarning(
-        $this->t('No media reference field found on album "@album" that accepts media type "@type".', [
-          '@album' => $this->albumNode->label(),
+        $this->t('No media reference field found on depot "@depot" that accepts media type "@type".', [
+          '@depot' => $this->depotNode->label(),
           '@type' => $entity->bundle(),
         ])
       );
     }
 
     // Apply field values to media entity.
-    if (!empty($this->configuration['album_field_values'])) {
+    if (!empty($this->configuration['depot_field_values'])) {
       $this->applyFieldValuesToMedia($entity);
     }
 
     $entity->save();
 
     if ($media_field_found) {
-      $this->albumNode->save();
+      $this->depotNode->save();
     }
   }
 
@@ -2084,9 +2097,9 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
    *   The media entity.
    */
   protected function applyFieldValuesToMedia($media) {
-    // Apply album field values (grouped by designation).
-    if (isset($this->configuration['album_field_values'])) {
-      foreach ($this->configuration['album_field_values'] as $designation_key => $field_data) {
+    // Apply depot field values (grouped by designation).
+    if (isset($this->configuration['depot_field_values'])) {
+      foreach ($this->configuration['depot_field_values'] as $designation_key => $field_data) {
         // Get the actual value and field names.
         $field_value = NULL;
         $field_names = [];

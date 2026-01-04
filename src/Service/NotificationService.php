@@ -46,14 +46,14 @@ class NotificationService {
   /**
    * Send notification about uploaded media batch.
    *
-   * @param object $album
-   *   The album object.
+   * @param object $depot
+   *   The depot object.
    * @param array $uploaded_files
    *   Array of uploaded files with keys: filename, user_name, media.
    */
-  public function notifyUploadBatch($user_name, $album, array $uploaded_files) {
-    // Check if notifications are enabled for this album.
-    if (empty($album->enable_notifications)) {
+  public function notifyUploadBatch($user_name, $depot, array $uploaded_files) {
+    // Check if notifications are enabled for this depot.
+    if (empty($depot->enable_notifications)) {
       return;
     }
 
@@ -61,7 +61,7 @@ class NotificationService {
       return;
     }
 
-    $recipients = $this->getNotificationRecipients($album);
+    $recipients = $this->getNotificationRecipients($depot);
 
     if (empty($recipients)) {
       return;
@@ -69,7 +69,7 @@ class NotificationService {
 
     // Prepare email content with all files.
     $params = [
-      'album' => $album,
+      'depot' => $depot,
       'uploaded_files' => $uploaded_files,
       'file_count' => count($uploaded_files),
       'user_name' => $user_name,
@@ -92,8 +92,8 @@ class NotificationService {
    *
    * @deprecated Use notifyUploadBatch() instead.
    */
-  public function notifyUpload($album, $filename, $user_name, $media = NULL) {
-    $this->notifyUploadBatch($album, [[
+  public function notifyUpload($depot, $filename, $user_name, $media = NULL) {
+    $this->notifyUploadBatch($depot, [[
       'filename' => $filename,
       'user_name' => $user_name,
       'media' => $media,
@@ -102,14 +102,14 @@ class NotificationService {
   }
 
   /**
-   * Get list of notification recipients from album settings.
+   * Get list of notification recipients from depot settings.
    */
-  protected function getNotificationRecipients($album) {
+  protected function getNotificationRecipients($depot) {
     $recipients = [];
 
     // Get users with specified roles.
-    if (!empty($album->notification_roles)) {
-      $role_ids = array_filter(explode(',', $album->notification_roles));
+    if (!empty($depot->notification_roles)) {
+      $role_ids = array_filter(explode(',', $depot->notification_roles));
 
       if (!empty($role_ids)) {
         // Query users with these roles.
@@ -140,8 +140,8 @@ class NotificationService {
     }
 
     // Add additional email if configured.
-    if (!empty($album->notification_email)) {
-      $recipients[] = $album->notification_email;
+    if (!empty($depot->notification_email)) {
+      $recipients[] = $depot->notification_email;
     }
 
     // Remove duplicates.

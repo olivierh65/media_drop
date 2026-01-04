@@ -9,6 +9,7 @@ use Drupal\Component\Serialization\Yaml;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\media_drop\Traits\MediaFieldFilterTrait;
+use Drupal\media_taxonomy_service\Service\DirectoryService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleExtensionList;
@@ -49,6 +50,13 @@ class ManageMediaController extends ControllerBase {
   protected $extensionListModule;
 
   /**
+   * The taxonomy service.
+   *
+   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   */
+  protected $taxonomyService;
+
+  /**
    * Constructs a ManageMediaController object.
    */
   public function __construct(
@@ -56,11 +64,13 @@ class ManageMediaController extends ControllerBase {
     ModuleHandlerInterface $module_handler,
     EntityTypeManagerInterface $entity_type_manager,
     ModuleExtensionList $extension_list_module,
+    DirectoryService $taxonomy_service,
   ) {
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
     $this->entityTypeManager = $entity_type_manager;
     $this->extensionListModule = $extension_list_module;
+    $this->taxonomyService = $taxonomy_service;
   }
 
   /**
@@ -71,7 +81,8 @@ class ManageMediaController extends ControllerBase {
       $container->get('config.factory'),
       $container->get('module_handler'),
       $container->get('entity_type.manager'),
-      $container->get('extension.list.module')
+      $container->get('extension.list.module'),
+      $container->get('media_drop.taxonomy_service')
     );
   }
 
@@ -183,7 +194,7 @@ class ManageMediaController extends ControllerBase {
     }
 
     // Update vocabulary ID for directory filter if media_directories is enabled.
-    $vocabulary_id = $this->getMediaDirectoriesVocabulary();
+    $vocabulary_id = $this->taxonomyService->getMediaDirectoriesVocabulary();
     if ($vocabulary_id) {
       $display_handler = $view_executable->getDisplay('default');
       if ($display_handler) {
@@ -200,17 +211,6 @@ class ManageMediaController extends ControllerBase {
     $build = $view_executable->buildRenderable('page_1', []);
     $build['#attached']['library'][] = 'media_drop/admin_grid';
     return $build;
-  }
-
-  /**
-   * Get the taxonomy ID used by Media Directories.
-   */
-  protected function getMediaDirectoriesVocabulary() {
-    if ($this->moduleHandler->moduleExists('media_directories')) {
-      $config = $this->configFactory->get('media_directories.settings');
-      return $config->get('directory_taxonomy');
-    }
-    return NULL;
   }
 
   /**
@@ -259,7 +259,7 @@ class ManageMediaController extends ControllerBase {
       throw new \Exception($this->t('Unable to parse the view configuration file.'));
     }
 
-    $vocabulary_id = $this->getMediaDirectoriesVocabulary();
+    $vocabulary_id = $this->taxonomyService->getMediaDirectoriesVocabulary();
     if ($vocabulary_id && isset($view_config['display']['default']['display_options']['filters']['directory'])) {
       $view_config['display']['default']['display_options']['filters']['directory']['vid'] = $vocabulary_id;
     }
