@@ -96,7 +96,7 @@
         createImageThumbnails: true,
         url: config.upload_url,
         paramName: "file",
-        maxFilesize: config.max_file_size || 50, // MB
+        // maxFilesize: config.max_file_size || 50, // MB
         acceptedFiles: config.accepted_files || "image/*,video/*",
         addRemoveLinks: false,
         dictDefaultMessage: Drupal.t("Drag and drop your files here"),
