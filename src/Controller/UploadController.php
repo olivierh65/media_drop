@@ -333,6 +333,7 @@ class UploadController extends ControllerBase {
 
       $build['folder_section']['new_folder_form']['new_folder_name'] = [
         '#type' => 'textfield',
+        '#width' => 20,
         '#attributes' => [
           'id' => 'new-folder-name',
           'placeholder' => $this->t('Folder name'),
@@ -418,11 +419,19 @@ class UploadController extends ControllerBase {
     $build['#attached']['library'][] = 'media_drop/dropzone';
     $build['#attached']['library'][] = 'media_drop/upload_interface';
 
+    $photo_settings = $this->directoryService->getMediaSourceFieldSettings($depot->default_media_type);
+    $video_settings = $this->directoryService->getMediaSourceFieldSettings($depot->video_media_type);
+
     // Pass settings to JavaScript.
     $build['#attached']['drupalSettings']['media_drop'] = [
       'depot_token' => $depot_token,
       'depot_name' => $depot->name,
-      'max_file_size' => $this->config('media_drop.settings')->get('max_filesize') ?: 50,
+      'max_file_size' => max(
+        (int) $photo_settings['max_filesize'],
+        (int) $video_settings['max_filesize']
+      ) ?: 125,
+      'max_photo_size' => (int) $photo_settings['max_filesize'] ?: 50,
+      'max_video_size' => (int) $video_settings['max_filesize'] ?: 250,
       'accepted_files' => $accepted_files,
       'upload_url' => Url::fromRoute('media_drop.ajax_upload', ['depot_token' => $depot_token])->toString(),
       'check_duplicate_url' => Url::fromRoute('media_drop.ajax_check_duplicate', ['depot_token' => $depot_token])->toString(),
@@ -811,6 +820,9 @@ class UploadController extends ControllerBase {
     if (!$depot) {
       return new JsonResponse(['error' => $this->t('Depot not found.')], 404);
     }
+
+    // First clean up missing media.
+    $this->cleanupMissingMedia($depot);
 
     $session_id = $this->getSessionId();
     $query = $this->database->select('media_drop_uploads', 'u')

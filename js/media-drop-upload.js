@@ -96,7 +96,7 @@
         createImageThumbnails: true,
         url: config.upload_url,
         paramName: "file",
-        // maxFilesize: config.max_file_size || 50, // MB
+        maxFilesize: config.max_file_size || 125, // MB
         acceptedFiles: config.accepted_files || "image/*,video/*",
         addRemoveLinks: false,
         dictDefaultMessage: Drupal.t("Drag and drop your files here"),
@@ -118,6 +118,28 @@
           if (!userName) {
             done(Drupal.t("Please enter your name before dropping files."));
             return;
+          }
+
+          if (file.type.startsWith("image/")) {
+            // Image
+            if (file.size > (config.max_photo_size || 50) * 1024 * 1024) {
+              done(
+                Drupal.t("Image file is too big (max: {{maxFilesize}}MB)", {
+                  "{{maxFilesize}}": config.max_photo_size || 50,
+                })
+              );
+              return;
+            }
+          } else if (file.type.startsWith("video/")) {
+            // Vidéo
+            if (file.size > (config.max_video_size || 125) * 1024 * 1024) {
+              done(
+                Drupal.t("Video file is too big (max: {{maxFilesize}}MB)", {
+                  "{{maxFilesize}}": config.max_video_size || 125,
+                })
+              );
+              return;
+            }
           }
 
           $.ajax({
