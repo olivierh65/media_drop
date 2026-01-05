@@ -92,7 +92,12 @@
         thumbnailWidth: 180,
         thumbnailHeight: 180,
         maxThumbnailFilesize: config.max_file_size || 50, // MB
-        parallelUploads: 3,
+        parallelUploads: 1,
+        chunking: true,
+        forceChunking: true,
+        chunkSize: 2 * 1024 * 1024, // 2 MB
+        retryChunks: true,
+        retryChunksLimit: 3,
         createImageThumbnails: true,
         url: config.upload_url,
         paramName: "file",

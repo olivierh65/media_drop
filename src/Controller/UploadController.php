@@ -2,6 +2,7 @@
 
 namespace Drupal\media_drop\Controller;
 
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -472,7 +473,8 @@ class UploadController extends ControllerBase {
       return new JsonResponse(['error' => $this->t('Permission denied.')], 403);
     }
 
-    $files = $request->files->get('file');
+    // $files = $request->files->get('file');
+    $files = [];
     $user_name = $request->request->get('user_name');
     $subfolder = $request->request->get('subfolder', '');
 
@@ -507,6 +509,16 @@ class UploadController extends ControllerBase {
       return new JsonResponse(['error' => $this->t('Cannot write to upload directory.')], 500);
     }
 
+    // Dispatcher vers chunk ou simple.
+    $isChunk = $request->request->get('dzchunkindex') !== NULL;
+
+    if ($isChunk) {
+      $files = $this->ajaxChunkUpload($request, $destination);
+    }
+    else {
+      $files = $this->ajaxSingleUpload($request, $destination);
+    }
+
     $results = [];
     // Accumulate files for single notification email.
     $uploaded_files_for_notification = [];
@@ -515,11 +527,17 @@ class UploadController extends ControllerBase {
       $files = [$files];
     }
 
-    foreach ($files as $file) {
-      if (!$file) {
+    foreach ($files as $file_name) {
+      if (!$file_name) {
         continue;
       }
-
+      $file = new UploadedFile(
+        $file_name['tmpPath'],
+        $file_name['originalName'],
+        $file_name['mimeType'] ?? NULL,
+        $file_name['errorCode'] ?? NULL === NULL ? NULL : 0,
+        TRUE
+      );
       try {
         // Validate file existence and readability.
         if (!$file->isValid()) {
@@ -708,7 +726,6 @@ class UploadController extends ControllerBase {
         ];
       }
     }
-
     // Send a single notification email with all uploaded files.
     // send one mail per upload batch.
     /* if (!empty($uploaded_files_for_notification)) {
@@ -716,6 +733,65 @@ class UploadController extends ControllerBase {
     } */
 
     return new JsonResponse(['results' => $results]);
+  }
+
+  /**
+   *
+   */
+  protected function ajaxChunkUpload(Request $request): array {
+    $file = $request->files->get('file');
+    $chunkIndex = $request->request->get('dzchunkindex');
+    $totalChunks = $request->request->get('dztotalchunkcount');
+    $fileUuid = $request->request->get('dzuuid');
+    $originalName = $request->request->get('dzuploadname', $file->getClientOriginalName());
+
+    $tempDir = sys_get_temp_dir() . '/upload_chunks';
+    if (!file_exists($tempDir)) {
+      mkdir($tempDir, 0777, TRUE);
+    }
+    $tempFilePath = $tempDir . '/' . $fileUuid;
+
+    // Ajouter le chunk au fichier temporaire.
+    file_put_contents($tempFilePath, file_get_contents($file->getRealPath()), FILE_APPEND);
+
+    // Si dernier chunk, renvoyer le tableau.
+    if ($chunkIndex + 1 == $totalChunks) {
+      return [[
+        'tmpPath' => $tempFilePath,
+        'originalName' => $originalName,
+      // approximatif, peut être recalculé plus tard.
+        'mimeType' => $file->getClientMimeType(),
+      // Toujours 0 pour un chunk valide.
+        'errorCode' => $file->getError(),
+      ],
+      ];
+    }
+
+    // Pas encore de fichier complet.
+    return [];
+  }
+
+  /**
+   *
+   */
+  protected function ajaxSingleUpload(Request $request): array {
+    $files = $request->files->get('file');
+    if (!is_array($files)) {
+      $files = [$files];
+    }
+
+    $results = [];
+    foreach ($files as $file) {
+      $results[] = [
+        'tmpPath' => $file->getRealPath(),
+        'originalName' => $file->getClientOriginalName(),
+        'mimeType' => $file->getClientMimeType(),
+      // 0 si OK
+        'errorCode' => $file->getError(),
+      ];
+    }
+
+    return $results;
   }
 
   /**
