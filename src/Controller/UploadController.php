@@ -899,7 +899,7 @@ class UploadController extends ControllerBase {
     }
 
     // First clean up missing media.
-    $this->cleanupMissingMedia($depot);
+    $this->cleanupMissingMedia($depot, TRUE);
 
     $session_id = $this->getSessionId();
     $query = $this->database->select('media_drop_uploads', 'u')
@@ -1257,11 +1257,13 @@ class UploadController extends ControllerBase {
    *
    * @param object $depot
    *   The depot object.
+   * @param bool $depot_dir
+   *   (optional) If true, check the depot directory itself, not the media location. Default FALSE.
    */
-  protected function cleanupMissingMedia($depot) {
+  protected function cleanupMissingMedia($depot, $depot_dir = FALSE) {
     // Get all media associated with this depot.
     $query = $this->database->select('media_drop_uploads', 'u')
-      ->fields('u', ['media_id', 'id'])
+      ->fields('u', ['media_id', 'id', 'subfolder', 'user_name'])
       ->condition('depot_id', $depot->id);
 
     $uploads = $query->execute()->fetchAll();
@@ -1296,14 +1298,29 @@ class UploadController extends ControllerBase {
 
         // Check if the file still exists.
         $file_exists = FALSE;
-        foreach ($media->get($source_field) as $field_item) {
-          if ($field_item->entity) {
-            $file_uri = $field_item->entity->getFileUri();
-            $file_path = $this->fileSystem->realpath($file_uri);
+        if ($depot_dir) {
+          // Check in depot base directory.
+          $file_uri = $media->$source_field->entity->getFileUri();
+          $file_path = $this->fileSystem->realpath($file_uri);
+          $depot_file_path = $this->fileSystem->realpath(
+            $depot->base_directory . '/' .
+            $upload->user_name . '/' .
+            $upload->subfolder . '/' .
+            $media->$source_field->entity->getFileName());
+          if (($file_path == $depot_file_path) && file_exists($depot_file_path)) {
+            $file_exists = TRUE;
+          }
+        }
+        else {
+          foreach ($media->$source_field as $field_item) {
+            if ($field_item->entity) {
+              $file_uri = $field_item->entity->getFileUri();
+              $file_path = $this->fileSystem->realpath($file_uri);
 
-            if (file_exists($file_path)) {
-              $file_exists = TRUE;
-              break;
+              if (file_exists($file_path)) {
+                $file_exists = TRUE;
+                break;
+              }
             }
           }
         }
