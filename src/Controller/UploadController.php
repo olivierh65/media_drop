@@ -22,6 +22,7 @@ use Drupal\media_taxonomy_service\Service\DirectoryService;
 use Drupal\media_drop\Service\NotificationService;
 use Psr\Log\LoggerInterface;
 use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\image\Entity\ImageStyle;
 
 /**
  * Controller for media upload interface.
@@ -1015,7 +1016,9 @@ class UploadController extends ControllerBase {
   protected function getMediaThumbnail($media) {
     $thumbnail = $media->get('thumbnail')->entity;
     if ($thumbnail) {
-      return $this->fileUrlGenerator->generateAbsoluteString($thumbnail->getFileUri());
+      $uri = $thumbnail->getFileUri();
+      $url = ImageStyle::load('medium')->buildUrl($uri);
+      return $this->fileUrlGenerator->generateAbsoluteString($url);
     }
     return NULL;
   }
