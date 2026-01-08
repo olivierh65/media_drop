@@ -141,16 +141,60 @@ display:
           exclude: false
           alter:
             alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
           element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: false
+          element_wrapper_type: ''
+          element_wrapper_class: ''
           element_default_classes: true
           empty: ''
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
+          click_sort_column: target_id
           type: image
           settings:
-            image_link: content
+            image_link: ''
             image_style: medium
+            image_loading:
+              attribute: lazy
+          group_column: ''
+          group_columns: {  }
+          group_rows: true
+          delta_limit: 0
+          delta_offset: 0
+          delta_reversed: false
+          delta_first_last: false
+          multi_type: separator
+          separator: ', '
+          field_api_classes: false
         name:
           id: name
           table: media_field_data
@@ -163,15 +207,57 @@ display:
           exclude: false
           alter:
             alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
           element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: false
+          element_wrapper_type: ''
+          element_wrapper_class: ''
           element_default_classes: true
           empty: ''
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
+          click_sort_column: value
           type: string
           settings:
-            link_to_entity: true
+            link_to_entity: false
+          group_column: value
+          group_columns: {  }
+          group_rows: true
+          delta_limit: 0
+          delta_offset: 0
+          delta_reversed: false
+          delta_first_last: false
+          multi_type: separator
+          separator: ', '
+          field_api_classes: false
         bundle:
           id: bundle
           table: media_field_data
@@ -184,13 +270,57 @@ display:
           exclude: false
           alter:
             alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
           element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
           element_default_classes: true
           empty: ''
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
+          click_sort_column: target_id
           type: entity_reference_label
+          settings:
+            link: false
+          group_column: target_id
+          group_columns: {  }
+          group_rows: true
+          delta_limit: 0
+          delta_offset: 0
+          delta_reversed: false
+          delta_first_last: false
+          multi_type: separator
+          separator: ', '
+          field_api_classes: false
         media_drop_media_info:
           id: media_drop_media_info
           table: views
@@ -203,7 +333,38 @@ display:
           exclude: false
           alter:
             alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
           element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: false
+          element_wrapper_type: ''
+          element_wrapper_class: ''
           element_default_classes: true
           empty: ''
           hide_empty: false
@@ -221,13 +382,163 @@ display:
           exclude: false
           alter:
             alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
           element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: false
+          element_wrapper_type: ''
+          element_wrapper_class: ''
           element_default_classes: true
           empty: ''
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
           destination: true
+        view_media:
+          id: view_media
+          table: media
+          field: view_media
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: media
+          plugin_id: entity_link
+          label: ''
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: false
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          text: view
+          output_url_as_text: true
+          absolute: false
+        mid:
+          id: mid
+          table: media_field_data
+          field: mid
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: media
+          entity_field: mid
+          plugin_id: field
+          label: ''
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: false
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          click_sort_column: value
+          type: number_integer
+          settings:
+            thousand_separator: ''
+            prefix_suffix: false
+          group_column: value
+          group_columns: {  }
+          group_rows: true
+          delta_limit: 0
+          delta_offset: 0
+          delta_reversed: false
+          delta_first_last: false
+          multi_type: separator
+          separator: ', '
+          field_api_classes: false
       pager:
         type: full
         options:
@@ -369,12 +680,155 @@ display:
             remember: false
             multiple: false
       style:
-        type: grid
+        type: draggable_flexgrid_with_groups
         options:
-          row_class: media-library-grid
-          columns: 4
-          alignment: horizontal
-          separator: false
+          columns: '6'
+          gap: 0.5rem
+          justify: flex-start
+          align: stretch
+          responsive: 1
+          field_groups:
+            group_1:
+              enabled: 1
+              label: ''
+              css_class: media-drop-thumbnail
+              wrapper_element: div
+              fields:
+                thumbnail__target_id: thumbnail__target_id
+                views_bulk_operations_bulk_form: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                view_media: 0
+                mid: 0
+            group_2:
+              enabled: 1
+              label: ''
+              css_class: media-drop-preview
+              wrapper_element: div
+              fields:
+                views_bulk_operations_bulk_form: views_bulk_operations_bulk_form
+                thumbnail__target_id: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                view_media: 0
+                mid: 0
+            group_3:
+              enabled: 1
+              label: ''
+              css_class: media-drop-info
+              wrapper_element: div
+              fields:
+                name: name
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                view_media: 0
+                mid: 0
+            group_4:
+              enabled: 1
+              label: ''
+              css_class: zone-4
+              wrapper_element: div
+              fields:
+                bundle: bundle
+                media_drop_media_info: media_drop_media_info
+                mid: mid
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                name: 0
+                operations: 0
+                view_media: 0
+            group_5:
+              enabled: 1
+              label: ''
+              css_class: zone-5
+              wrapper_element: div
+              fields:
+                operations: operations
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                view_media: 0
+                mid: 0
+            group_6:
+              enabled: 1
+              label: ''
+              css_class: zone-6
+              wrapper_element: div
+              fields:
+                view_media: view_media
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                mid: 0
+            group_7:
+              enabled: 0
+              label: ''
+              css_class: zone-7
+              wrapper_element: div
+              fields:
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                view_media: 0
+                mid: 0
+            group_8:
+              enabled: 0
+              label: ''
+              css_class: zone-8
+              wrapper_element: div
+              fields:
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                view_media: 0
+                mid: 0
+            group_9:
+              enabled: 0
+              label: ''
+              css_class: zone-9
+              wrapper_element: div
+              fields:
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                view_media: 0
+                mid: 0
+            group_10:
+              enabled: 0
+              label: ''
+              css_class: zone-10
+              wrapper_element: div
+              fields:
+                views_bulk_operations_bulk_form: 0
+                thumbnail__target_id: 0
+                name: 0
+                bundle: 0
+                media_drop_media_info: 0
+                operations: 0
+                view_media: 0
+                mid: 0
+          show_ungrouped: 1
       row:
         type: fields
       relationships: {  }
@@ -411,7 +865,15 @@ display:
     display_options:
       display_extenders: {  }
       path: admin/config/media/media-drop/media-list
-      menu: {  }
+      menu:
+        type: none
+        title: 'Media Drop'
+        description: 'Gérer les médias uploadés via Media Drop'
+        weight: 5
+        expanded: false
+        menu_name: admin
+        parent: system.admin_content
+        context: '0'
     cache_metadata:
       max-age: 0
       contexts:
