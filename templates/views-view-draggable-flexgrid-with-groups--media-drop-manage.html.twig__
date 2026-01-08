@@ -1,0 +1,148 @@
+{#
+/**
+ * @file
+ * Template for Draggable Flex Grid with Field Groups for Media Drop.
+ *
+ * Available variables:
+ * - view: The view object.
+ * - rows: An array of row items. Each row contains rendered content.
+ * - options: Style plugin options including columns, gap, etc.
+ * - field_groups: Configuration array for field groups.
+ * - show_ungrouped: Boolean indicating whether to show ungrouped fields.
+ * - grouped_fields: Array of field IDs that are assigned to groups.
+ */
+#}
+
+{# Extract variables from options for cleaner code #}
+{% set columns = options.columns|default(4) %}
+{% set gap = options.gap|default('20px') %}
+{% set justify = options.justify|default('flex-start') %}
+{% set align = options.align|default('stretch') %}
+{% set responsive = options.responsive|default(true) %}
+
+{# Field groups configuration - use direct variable passed from render() #}
+{% set field_groups_config = options.field_groups|default({}) %}
+{% set show_ungrouped_fields = options.show_ungrouped|default(true) %}
+{% set all_grouped_fields = grouped_fields|default([]) %}
+
+
+<div class="draggable-flexgrid draggable-flexgrid--{{ columns }}cols draggable-flexgrid--with-groups js-draggable-flexgrid"
+     data-view-id="{{ view.id }}"
+     data-display-id="{{ view.current_display }}"
+     data-columns="{{ columns }}"
+     data-gap="{{ gap }}"
+     style="display: flex; flex-wrap: wrap; gap: {{ gap }}; justify-content: {{ justify }}; align-items: {{ align }};">
+
+  <input type="hidden" name="vbo_media_drop_order" class="vbo-media-drop-order" value="">
+
+  {% if rows is empty %}
+    <div class="draggable-flexgrid__empty">
+      {{ 'No content available.'|t }}
+    </div>
+  {% else %}
+    {% for row in rows %}
+      {# Récupérer l'entité et son ID #}
+      {% set entity = row['#row']._entity %}
+      {% set entity_id = entity ? entity.id() : loop.index %}
+      {% set row_index = loop.index0 %}
+
+      <div class="draggable-flexgrid__item js-draggable-item"
+           data-entity-id="{{ entity_id }}"
+           data-id="{{ entity_id }}"
+           data-index="{{ loop.index0 }}"
+           style="flex: 0 0 calc(100% / {{ columns }} - {{ gap }});">
+
+        {# Poignée de drag #}
+        <div class="draggable-flexgrid__menu-handle" title="{{ 'Action menu'|t }}">
+          <div class="draggable-flexgrid__handle" title="{{ 'Drag to reorder'|t }}">
+            ☰
+          </div>
+        </div>
+
+        {# Wrapper pour le contenu #}
+        <div class="draggable-flexgrid__content">
+
+          {# Rendu des groupes configurés #}
+          {% if field_groups_config %}
+            {% for group_id, group_config in field_groups_config %}
+            {{dump(group_config)}}
+              {% if group_config.enabled %}
+                {% set wrapper_element = group_config.wrapper_element|default('div') %}
+                {% set group_class = group_config.css_class|default('field-group--' ~ group_id) %}
+
+                <{{ wrapper_element }} class="field-group field-group--{{ group_id }} {{ group_class }}">
+
+                  {# Label du groupe (optionnel) #}
+                  {% if group_config.label %}
+                    <div class="field-group__label">{{ group_config.label }}</div>
+                  {% endif %}
+
+                  {# Contenu du groupe #}
+                  <div class="field-group__content">
+                    {% for field_id, checked in group_config.fields %}
+                      {% if checked and view.field[field_id] is defined %}
+                        <div class="field field--{{ field_id }} field--type-{{ view.field[field_id].pluginId }}">
+                          {% if view.field[field_id].label() %}
+                            <div class="field__label">{{ view.field[field_id].label() }}</div>
+                          {% endif %}
+                          <div class="field__content">
+                            {{ view.style_plugin.getField(loop.parent.parent.parent.loop.index0, field_id) }}
+                          </div>
+                        </div>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+
+                </{{ wrapper_element }}>
+
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+
+          {# Champs non groupés #}
+          {% if show_ungrouped_fields %}
+            {% set has_ungrouped = false %}
+
+            {# Vérifier d'abord s'il y a des champs non groupés #}
+            {% for field_id, field_handler in view.field %}
+              {% if field_id not in all_grouped_fields %}
+                {% set has_ungrouped = true %}
+              {% endif %}
+            {% endfor %}
+
+            {# Afficher les champs non groupés s'il y en a #}
+            {% if has_ungrouped %}
+              <div class="field-group field-group--ungrouped">
+                <div class="field-group__content">
+                  {% for field_id, field_handler in view.field %}
+                    {% if field_id not in all_grouped_fields %}
+                      <div class="field field--{{ field_id }} field--type-{{ field_handler.pluginId }}">
+                        {% if field_handler.label() %}
+                          <div class="field__label">{{ field_handler.label() }}</div>
+                        {% endif %}
+                        <div class="field__content">
+                          {{ view.style_plugin.getField(row_index, field_id) }}
+                        </div>
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          {% endif %}
+
+        </div>
+
+        {# Informations supplémentaires (popup) #}
+        <div class="js-more-info-wrapper">
+          <button type="button" class="js-entity-id-btn">{{ 'Plus...'|t }}</button>
+          <div class="js-entity-popup">
+            Id: {{ entity_id }}<br>
+            Type: {{ entity.getEntityTypeId() }}
+          </div>
+        </div>
+
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>

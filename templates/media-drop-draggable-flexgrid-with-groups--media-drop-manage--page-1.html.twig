@@ -1,0 +1,176 @@
+{#
+/**
+ * @file
+ * Template for Draggable Flex Grid with Field Groups.
+ *
+ * Available variables:
+ * - view: The view object.
+ * - rows: An array of row items. Each row contains rendered content.
+ * - options: Style plugin options including columns, gap, etc.
+ * - field_groups: Configuration array for field groups.
+ * - show_ungrouped: Boolean indicating whether to show ungrouped fields.
+ * - grouped_fields: Array of field IDs that are assigned to groups.
+ */
+#}
+
+{# Extract variables from options for cleaner code #}
+{% set columns = options.columns|default(4) %}
+{% set gap = options.gap|default('20px') %}
+{% set justify = options.justify|default('flex-start') %}
+{% set align = options.align|default('stretch') %}
+{% set responsive = options.responsive|default(true) %}
+
+{# Field groups configuration - use direct variable passed from render() #}
+{% set field_groups_config = options.field_groups|default({}) %}
+{% set show_ungrouped_fields = options.show_ungrouped|default(true) %}
+{% set all_grouped_fields = grouped_fields|default([]) %}
+
+<div class="draggable-flexgrid draggable-flexgrid--{{ columns }}cols draggable-flexgrid--with-groups js-draggable-flexgrid"
+     data-view-id="{{ view.id }}"
+     data-display-id="{{ view.current_display }}"
+     data-columns="{{ columns }}"
+     data-gap="{{ gap }}"
+     style="display: flex; flex-wrap: wrap; gap: {{ gap }}; justify-content: {{ justify }}; align-items: {{ align }};">
+
+  <input type="hidden" name="vbo_media_drop_order" class="vbo-media-drop-order" value="">
+
+  {% if rows is empty %}
+    <div class="draggable-flexgrid__empty">
+      {{ 'No content available.'|t }}
+    </div>
+  {% else %}
+    {% for row in rows %}
+      {# Récupérer l'entité et son ID #}
+      {% set entity = row['#row']._entity %}
+      {% set entity_id = entity ? entity.id() : loop.index %}
+      {% set row_index = loop.index0 %}
+
+      <div class="draggable-flexgrid__item js-draggable-item"
+           data-entity-id="{{ entity_id }}"
+           data-id="{{ entity_id }}"
+           data-index="{{ loop.index0 }}"
+           style="flex: 0 0 calc(100% / {{ columns }} - {{ gap }});">
+
+        {# Poignée de drag #}
+        <div class="draggable-flexgrid__menu-handle" title="{{ 'Action menu'|t }}">
+          <div class="draggable-flexgrid__handle" title="{{ 'Drag to reorder'|t }}">
+            <svg class="drag-icon" width="1.8rem" height="1.8rem" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <!-- Flèches positionnées vers les extrémités -->
+              <!-- Haut -->
+              <line x1="16" y1="6" x2="16" y2="14"/>
+              <polyline points="12,10 16,6 20,10"/>
+              <!-- Bas -->
+              <line x1="16" y1="26" x2="16" y2="18"/>
+              <polyline points="12,22 16,26 20,22"/>
+              <!-- Gauche -->
+              <line x1="6" y1="16" x2="14" y2="16"/>
+              <polyline points="10,12 6,16 10,20"/>
+              <!-- Droite -->
+              <line x1="26" y1="16" x2="18" y2="16"/>
+              <polyline points="22,12 26,16 22,20"/>
+            </svg>
+          </div>
+          <div class="zoom-trigger"
+            role="button"
+            tabindex="0"
+            title="{{ 'View full size'|t }}"
+            aria-label="{{ 'View full size'|t }}"
+            data-image-src="{{ large_image_url }}"
+            data-image-alt="{{ image_alt }}">
+            <svg class="zoom-icon" width="1.8rem" height="1.8rem" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/>
+              <!-- Double ligne pour épaissir la base -->
+              <line x1="19" y1="19" x2="28" y2="28" stroke-width="3"/>
+              <line x1="18" y1="20" x2="27" y2="29" stroke-width="1.5" opacity="0.8"/>
+              <line x1="11" y1="7" x2="11" y2="15"/>
+              <line x1="7" y1="11" x2="15" y2="11"/>
+            </svg>
+          </div>
+        </div>
+
+        {#
+        Group_1 : Thumbnail field
+        Group_2 : VBO actions field
+        Group_3 : Name field
+        Group_4 : Media Details fields
+        Group_5 : Action field
+        Group_6 : Image preview field
+        #}
+        {# {{ dump(field_groups_config) }} #}
+        {% if field_groups_config %}
+          <div class="draggable-flexgrid__content">
+            {% if field_groups_config.group_1.enabled %}
+            {% set size = view.style_plugin.getMediaImageSize(row_index, field_groups_config.group_6.fields|filter(v => v != 0)|first) %}
+              <div class="views-field views-field-thumbnail__target-id media-drop-thumbnail-field"
+                data-image-src="{{ view.style_plugin.getMediaImageUrl(row_index, field_groups_config.group_6.fields|filter(v => v != 0)|first) }}"
+                data-image-size="{{ size.width }}x{{ size.height }}">
+                {% for field_id, checked in field_groups_config.group_1.fields %}
+                  {% if checked and view.field[field_id] is defined %}
+                      <span class="field-content">
+                        {{ view.style_plugin.getField(row_index, field_id) }}
+                    </span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+            {% endif %}
+            {% if field_groups_config.group_2.enabled %}
+              <div class="views-field-views-bulk-operations-bulk-form media-drop-vbo-field">
+                {% for field_id, checked in field_groups_config.group_2.fields %}
+                  {% if checked and view.field[field_id] is defined %}
+                    <span class="field-content">
+                      {{ view.style_plugin.getField(row_index, field_id) }}
+                    </span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field_groups_config.group_3.enabled %}
+              <div class="views-field-bundle media-drop-name-field">
+                {% for field_id, checked in field_groups_config.group_3.fields %}
+                  {% if checked and view.field[field_id] is defined %}
+                    {% if not loop.first %}
+                      <br>
+                    {% endif %}
+                    <span class="field-content">
+                      {{ view.style_plugin.getField(row_index, field_id) }}
+                    </span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field_groups_config.group_5.enabled %}
+              <div class="views-field-operations media-drop-action-field">
+                {% for field_id, checked in field_groups_config.group_5.fields %}
+                  {% if checked and view.field[field_id] is defined %}
+                    <span class="field-content">
+                      {{ view.style_plugin.getField(row_index, field_id) }}
+                    </span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          {% if field_groups_config.group_4.enabled %}
+            <div class="js-more-info-wrapper" data-once="entity-popup">
+              <button type="button" class="js-entity-id-btn">Plus...</button>
+              <div class="js-entity-popup">
+                <span class="popup-image-size popup-field">
+                  size : {{ size.width }}x{{ size.height }}
+                </span>
+                {% for field_id, checked in field_groups_config.group_4.fields %}
+                  {% if checked and view.field[field_id] is defined %}
+                    <span class="popup-{{field_id}}  popup-field">
+                      {{ view.style_plugin.getField(row_index, field_id) }}
+                    </span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>

@@ -23,9 +23,62 @@ function media_drop_theme($existing, $type, $theme, $path) {
       'variables' => [
         'depot_name' => NULL,
       ],
-      'template' => 'media-drop-upload-page',
+      'template' => 'media_drop_upload_page',
+    ],
+    'media_drop_draggable_flexgrid_with_groups' => [
+      'variables' => [
+      'theme' => [],
+      'view' => [],
+      'rows' => [],
+      'options' => [],
+      'grouped_fields' => [],
+      'fields_entity_types' => [],
+      ],
+      'path' => $path . '/templates',
+    ],
+     // Suggestion must be defined here to be recognized.
+    'media_drop_draggable_flexgrid_with_groups__media_drop_manage' => [
+      'variables' => [
+      'theme' => [],
+      'view' => [],
+      'rows' => [],
+      'options' => [],
+      'grouped_fields' => [],
+      'fields_entity_types' => [],
+      ],
+      'path' => $path . '/templates',
+    ],
+    'media_drop_draggable_flexgrid_with_groups__media_drop_manage__page_1' => [
+      'variables' => [
+      'theme' => [],
+      'view' => [],
+      'rows' => [],
+      'options' => [],
+      'grouped_fields' => [],
+      'fields_entity_types' => [],
+      ],
+      'path' => $path . '/templates',
     ],
   ];
+}
+
+/**
+ * Implements hook_theme_suggestions_HOOK_alter() for
+ * media_drop_draggable_flexgrid_with_groups theme hook.
+ */
+function media_drop_theme_suggestions_media_drop_draggable_flexgrid_with_groups_alter(array &$suggestions, array $variables, $hook) {
+  /** @var \Drupal\views\ViewExecutable $view */
+
+  if ($hook !== 'media_drop_draggable_flexgrid_with_groups') {
+    return;
+  }
+  if (isset($variables['view']) && $variables['view']->id() === 'media_drop_manage') {
+      $display_id = $variables['view']->current_display;
+
+      //don't forget to add these suggestions in hook_theme() as well!!!
+      $suggestions[] = 'media_drop_draggable_flexgrid_with_groups__' . $variables['view']->id();
+      $suggestions[] = 'media_drop_draggable_flexgrid_with_groups__' . $variables['view']->id() . '__' . $display_id;
+    }
 }
 
 /**
@@ -82,4 +135,27 @@ function media_drop_mail($key, &$message, $params) {
 
       break;
   }
+}
+
+function media_drop_form_alter(
+  array &$form,
+  \Drupal\Core\Form\FormStateInterface $form_state,
+  $form_id
+) {
+  if ($form_id === 'views_form_media_drop_manage_page_1') {
+
+    // Ajouter un submit custom AVANT VBO
+    $form['#submit'][] = 'media_drop_capture_order_submit';
+  }
+}
+
+function media_drop_capture_order_submit(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+  $order = $form_state->getUserInput()['vbo_media_drop_order'];
+  $order = json_decode($order, TRUE);
+  // Récupérer le service tempstore
+  $tempstore_factory = \Drupal::service('tempstore.private');
+$tempstore = $tempstore_factory->get('media_drop');
+
+// Stocker un tableau
+$tempstore->set('ordered_media_ids', $order);
 }

@@ -107,6 +107,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       'depot_id' => NULL,
       'directory_tid' => NULL,
       'depot_field_values' => [],
+      'order' => [],
     ];
   }
 
@@ -207,10 +208,26 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       ],
     ];
 
+    $form['step_1']['order'] = [
+      '#type' => 'hidden',
+      '#value' => [1, 2, 3],
+      '#attributes' => [
+        'class' => ['media-drop-order-step1'],
+      ],
+    ];
+
     // Wrapper for AJAX updates.
     $form['step_2_wrapper'] = [
       '#type' => 'container',
       '#attributes' => ['id' => 'depot-fields-wrapper'],
+    ];
+
+    $form['step_2_wrapper']['order'] = [
+      '#type' => 'hidden',
+      '#value' => [11, 22, 33],
+      '#attributes' => [
+        'class' => ['media-drop-order'],
+      ],
     ];
 
     // Directory selection has been moved to Step 2.
@@ -1914,6 +1931,40 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
   }
 
   /**
+   *
+   */
+  public function executeMultiple(array $entities) {
+    // Récupérer le service de stockage temporaire privé.
+    $tempstore_factory = \Drupal::service('tempstore.private');
+
+    // Créer ou récupérer une collection "media_drop".
+    $tempstore = $tempstore_factory->get('media_drop');
+
+    $order = $tempstore->get('ordered_media_ids');
+
+    $insert_order = [];
+    foreach ($entities as $entity) {
+      $key = array_search($entity->id(), $order);
+      if ($key !== FALSE) {
+        $insert_order[$key] = $entity;
+        \Drupal::logger('media_drop')->notice('Processing media @mid at order position @pos', [
+          '@mid' => $entity->id(),
+          '@pos' => $key,
+        ]);
+      }
+      else {
+        \Drupal::logger('media_drop')->notice('Processing media @mid with no specific order', [
+          '@mid' => $entity->id(),
+        ]);
+      }
+    }
+
+    foreach ($insert_order as $entity) {
+      $this->execute($entity);
+    }
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function execute($entity = NULL) {
@@ -1936,6 +1987,19 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
         $this->t('Depot node not found.')
       );
       return;
+    }
+
+    // Récupérer le service de stockage temporaire privé.
+    $tempstore_factory = \Drupal::service('tempstore.private');
+
+    // Créer ou récupérer une collection "media_drop".
+    $tempstore = $tempstore_factory->get('media_drop');
+
+    $order = $tempstore->get('ordered_media_ids');
+
+    if ($order && is_array($order)) {
+      \Drupal::logger('media_drop')->notice('Order received: @order', ['@order' => implode(',', $order)]);
+      // Ici tu peux réordonner, traiter, ou sauvegarder selon l'ordre.
     }
 
     // Check if media is already in the depot - skip if it is.

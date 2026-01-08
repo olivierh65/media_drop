@@ -115,9 +115,10 @@
 /* Edit button always at bottom */
 .views-field-operations {
   margin-top: auto; /* Push to bottom */
-  padding-top: 0.5rem;
+  /* padding-top: 0.5rem; */
   border-top: 1px solid #e0e0e0;
   flex-shrink: 0;
+  text-align: center;
 }
 
 /* If Edit button is directly in views-col */

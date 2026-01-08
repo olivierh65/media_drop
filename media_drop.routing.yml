@@ -155,3 +155,14 @@ media_drop.ajax_check_duplicate:
   options:
     no_cache: TRUE
   methods: [POST]
+
+draggable_flexgrid.save_order:
+  path: '/media-drop/draggable-flexgrid/save-order'
+  defaults:
+    _controller: '\Drupal\media_drop\Controller\DraggableFlexGridController::saveOrder'
+    _title: 'Save order'
+  requirements:
+    _permission: 'upload media to depots'
+  methods: [POST]
+  options:
+    no_cache: TRUE

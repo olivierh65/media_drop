@@ -1,0 +1,48 @@
+{# templates/views-view-draggable-flexgrid.html.twig #}
+{% set columns = options.columns|default(4) %}
+{% set gap = options.gap|default('20px') %}
+{% set justify = options.justify|default('flex-start') %}
+{% set align = options.align|default('stretch') %}
+{% set responsive = options.responsive|default(true) %}
+
+
+<div class="draggable-flexgrid draggable-flexgrid--{{ columns }}cols js-draggable-flexgrid" data-view-id="{{ view.id }}" data-display-id="{{ view.current_display }}" data-columns="{{ columns }}" data-gap="{{ gap }}" style="display: flex; flex-wrap: wrap; gap: {{ gap }};">
+	<input type="hidden" name="vbo_media_drop_order" class="vbo-media-drop-order" value="">
+	{% if rows is empty %}
+		<div class="draggable-flexgrid__empty">
+			{{ 'No content available.'|t }}
+		</div>
+	{% else %}
+		{% for row in rows %}
+			{# Récupérer l'ID de l'entité #}
+			{% set entity = row['#row']._entity %}
+			{% set entity_id = entity ? entity.id() : loop.index %}
+
+			<div
+				class="draggable-flexgrid__item js-draggable-item" data-entity-id="{{ entity_id }}" data-id="{{ entity_id }}" data-index="{{ loop.index0 }}" style="flex: 0 0 calc(100% / {{ columns }} - {{ gap }});">
+
+				{# Poignée de drag #}
+				<div class="draggable-flexgrid__menu-handle" title="{{ 'Action menu'|t }}">
+
+					<div class="draggable-flexgrid__handle" title="{{ 'Drag to reorder'|t }}">
+						☰
+					</div>
+				</div>
+
+				{# Wrapper pour le contenu #}
+				<div class="draggable-flexgrid__content">
+					{{ row }}
+				</div>
+				<div class="js-more-info-wrapper">
+					<button type="button" class="js-entity-id-btn">{{ 'Plus...'|t }}</button>
+					<div class="js-entity-popup">
+						Id:
+						{{ entity_id }}<br>
+						Type:
+						{{ entity.getEntityTypeId() }}
+					</div>
+				</div>
+			</div>
+		{% endfor %}
+	{% endif %}
+</div>

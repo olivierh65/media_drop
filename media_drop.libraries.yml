@@ -26,14 +26,20 @@ admin_grid:
   css:
     theme:
       css/media-drop-admin-grid.css: {}
+      css/draggable-flexgrid.css: {}
+      css/media-drop-manage-image.css: {}
   js:
+    js/Sortable/Sortable.js: {}
     js/media-drop-multi-select.js: {}
     js/fix_vbo_counter.js: {}
+    js/draggable-flexgrid.js: {}
+    js/media-drop-manage-image.js: {}
   dependencies:
     - core/drupal
     - core/drupalSettings
     - core/once
     - views_bulk_operations/vbo
+    - core/jquery
 
 media-info:
   version: 1.x
