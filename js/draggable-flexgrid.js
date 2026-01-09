@@ -44,6 +44,9 @@
         drake.on("drag", function (el, source) {
           console.log("✓ Drag started on element:", el.getAttribute("data-id"));
           el.classList.add("draggable-flexgrid__item--drag");
+          // Ajouter un listener de mousemove pour l'auto-scroll
+          document.addEventListener("mousemove", autoScrollDuringDrag);
+          document.addEventListener("touchmove", autoScrollDuringDrag);
         });
 
         // Événement pendant le mouvement
@@ -56,6 +59,10 @@
           console.log("✓ Drop successful");
           el.classList.remove("draggable-flexgrid__item--drag");
 
+          // retirer les listeners
+          document.removeEventListener("mousemove", autoScrollDuringDrag);
+          document.removeEventListener("touchmove", autoScrollDuringDrag);
+
           // Mettre à jour l'ordre
           updateOrderFromDragula(grid);
         });
@@ -64,6 +71,10 @@
         drake.on("cancel", function (el, container, source) {
           console.log("✗ Drag cancelled");
           el.classList.remove("draggable-flexgrid__item--drag");
+
+          // retirer les listeners
+          document.removeEventListener("mousemove", autoScrollDuringDrag);
+          document.removeEventListener("touchmove", autoScrollDuringDrag);
         });
       });
 
@@ -119,6 +130,62 @@
             console.error("Error saving order:", error);
           });
       }
+
+      // Fonction d'auto-scroll pendant le drag
+      function autoScrollDuringDrag(e) {
+        const margin = 80; // px depuis le haut/bas de l'écran pour déclencher le scroll
+        const speed = 15; // pixels à chaque tick
+
+        // Déterminer la position Y selon le type d'événement
+        let y;
+        if (e.touches && e.touches.length > 0) {
+          y = e.touches[0].clientY;
+        } else if (e.clientY !== undefined) {
+          y = e.clientY;
+        } else {
+          return; // impossible de déterminer Y
+        }
+
+        // console.log("Auto-scroll check at Y:", y);
+
+        if (y < margin) {
+          // console.log("Scrolling up");
+          window.scrollBy({ top: -speed });
+        } else if (y > window.innerHeight - margin) {
+          // console.log("Scrolling down");
+          window.scrollBy({ top: speed });
+        }
+      }
+
+      const container = document.querySelector(".draggable-flexgrid");
+
+      container.addEventListener(
+        "touchmove",
+        function (e) {
+          const scrollTop = container.scrollTop;
+          const scrollHeight = container.scrollHeight;
+          const offsetHeight = container.offsetHeight;
+
+          // Si on est tout en haut et qu'on scroll vers le haut, ne pas bloquer
+          if (scrollTop <= 0 && e.touches[0].clientY > container._lastY) {
+            // rien
+          }
+          // Si on est tout en bas et qu'on scroll vers le bas, ne pas bloquer
+          else if (
+            scrollTop + offsetHeight >= scrollHeight &&
+            e.touches[0].clientY < container._lastY
+          ) {
+            // rien
+          }
+          // Sinon, on veut bloquer le scroll natif pour drag
+          else {
+            e.preventDefault();
+          }
+
+          container._lastY = e.touches[0].clientY;
+        },
+        { passive: false }
+      );
 
       // ========================================
       // POPUP - Gestion du menu "Plus..."

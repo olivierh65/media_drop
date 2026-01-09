@@ -1,4 +1,11 @@
 /* === ITEM === */
+
+.draggable-flexgrid {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scroll iOS */
+  touch-action: pan-y; /* autoriser scroll vertical */
+}
+
 .draggable-flexgrid__item {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -9,7 +16,7 @@
     "entity entity";
   position: relative;
   cursor: default;
-  touch-action: none;
+  touch-action: pan-y;
   user-select: none;
   border: #0071b8 1px solid;
   border-radius: 4px;
@@ -222,6 +229,7 @@
   .draggable-flexgrid__item .dropbutton__toggle {
     padding: 0.25rem 0.4rem;
     line-height: 1.1;
+    height: auto;
   }
 
   .media-drop-name-field {
