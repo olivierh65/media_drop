@@ -314,6 +314,12 @@
   }
 }
 
+@media (pointer: coarse) {
+  .draggable-flexgrid__item {
+    touch-action: none;
+  }
+}
+
 /* Adaptation pour images sombres */
 .draggable-flexgrid__item.dark-image .draggable-flexgrid__handle,
 .draggable-flexgrid__item.dark-image .zoom-trigger {

@@ -44,6 +44,7 @@
         }
 
         var config = {};
+        const isTouch = needsFallback();
 
         // Créer l'instance Sortable
         var sortable = Sortable.create(grid, {
@@ -53,9 +54,11 @@
           ghostClass: "draggable-flexgrid__item--ghost",
           chosenClass: "draggable-flexgrid__item--chosen",
           dragClass: "draggable-flexgrid__item--drag",
-          fallbackOnBody: true,
-          forceFallback: false,
+          fallbackOnBody: isTouch,
+          forceFallback: isTouch,
+          fallbackTolerance: isTouch ? 10 : 0,
           swapThreshold: 0.65,
+          invertSwap: isTouch,
           scroll: true,
 
           onEnd: function (evt) {
@@ -72,6 +75,14 @@
         console.log("Initialized Sortable on grid:", grid);
         updateOrderInputCB(sortable);
       });
+
+      function needsFallback() {
+  return (
+    "ontouchstart" in window ||
+    navigator.maxTouchPoints > 0 ||
+    navigator.msMaxTouchPoints > 0
+  );
+}
 
       // Dans votre JS - updateOrderInput()
       function updateOrderInputCB(sortable) {
