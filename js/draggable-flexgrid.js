@@ -1,4 +1,3 @@
-// js/draggable-flexgrid.js
 (function ($, Drupal, drupalSettings, once) {
   "use strict";
 
@@ -7,75 +6,152 @@
       // ========================================
       // DRAGULA - Gestion du drag & drop
       // ========================================
-      once("dragula", ".js-draggable-flexgrid", context).forEach(function (
-        grid
-      ) {
+      once("dragula", ".js-draggable-flexgrid", context).forEach(function (grid) {
         console.log("Initializing Dragula on grid:", grid);
 
         var drake = dragula([grid], {
-          // Important : le handle est imbriqué dans .draggable-flexgrid__menu-handle
-          moves: function (el, container, handle) {
-            // L'élément doit avoir la classe js-draggable-item
-            if (!el.classList.contains("js-draggable-item")) {
-              return false;
-            }
-
-            if (handle.closest(".js-more-info-wrapper")) {
-              return false;
-            }
-
-            // Le drag doit partir du handle ou d'un de ses parents
-            return (
-              handle.classList.contains("draggable-flexgrid__handle") ||
-              handle.closest(".draggable-flexgrid__handle") !== null
-            );
+          moves: function(el, container, handle) {
+            if (!el.classList.contains("js-draggable-item")) return false;
+            if (handle.closest(".js-more-info-wrapper")) return false;
+            return handle.classList.contains("draggable-flexgrid__handle") ||
+                   handle.closest(".draggable-flexgrid__handle");
           },
-
           revertOnSpill: true,
           removeOnSpill: false,
-          direction: "horizontal", // Votre grid est en flex-wrap
-
-          // Paramètres tactiles
-          delay: 0, // Pas de délai avec Dragula
+          direction: "horizontal",
+          delay: 300,
+          delayOnTouchOnly: true,
           mirrorContainer: document.body,
+          scroll: false, // IMPORTANT: Désactiver le scroll automatique de Dragula
+
+          invalid: function(el, handle) {
+            if (handle &&
+                !handle.classList.contains("draggable-flexgrid__handle") &&
+                !handle.closest(".draggable-flexgrid__handle")) {
+              return true;
+            }
+            return false;
+          }
         });
+
+        // Variables pour le scroll de la page
+        let scrollInterval = null;
+        let isDragging = false;
+        let lastMouseY = 0;
+
+        // Fonction pour gérer le scroll de la page
+        function handlePageScroll(e) {
+          if (!isDragging) return;
+
+          // Obtenir la position Y
+          let clientY;
+          if (e.type === 'touchmove' && e.touches && e.touches[0]) {
+            clientY = e.touches[0].clientY;
+          } else if (e.type === 'mousemove') {
+            clientY = e.clientY;
+          } else {
+            return;
+          }
+
+          lastMouseY = clientY;
+
+          // Démarrer l'intervalle de scroll si nécessaire
+          if (!scrollInterval) {
+            startAutoScroll();
+          }
+        }
+
+        // Démarrer l'auto-scroll
+        function startAutoScroll() {
+          scrollInterval = setInterval(function() {
+            if (!isDragging) {
+              stopAutoScroll();
+              return;
+            }
+
+            performAutoScroll();
+          }, 16); // ~60fps
+        }
+
+        // Effectuer le scroll
+        function performAutoScroll() {
+          const margin = 100; // Zone de déclenchement
+          const speed = 30; // Vitesse de scroll
+          const y = lastMouseY;
+
+          if (y < margin) {
+            // Scroll vers le haut
+            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+            const newScroll = Math.max(0, currentScroll - speed);
+            window.scrollTo(0, newScroll);
+          } else if (y > window.innerHeight - margin) {
+            // Scroll vers le bas
+            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            const newScroll = Math.min(maxScroll, currentScroll + speed);
+            window.scrollTo(0, newScroll);
+          }
+        }
+
+        // Arrêter l'auto-scroll
+        function stopAutoScroll() {
+          if (scrollInterval) {
+            clearInterval(scrollInterval);
+            scrollInterval = null;
+          }
+        }
 
         // Événement au début du drag
-        drake.on("drag", function (el, source) {
-          console.log("✓ Drag started on element:", el.getAttribute("data-id"));
+        drake.on("drag", function(el, source) {
           el.classList.add("draggable-flexgrid__item--drag");
-          // Ajouter un listener de mousemove pour l'auto-scroll
-          document.addEventListener("mousemove", autoScrollDuringDrag);
-          document.addEventListener("touchmove", autoScrollDuringDrag);
+          isDragging = true;
+
+          // Ajouter les écouteurs pour la page entière
+          document.addEventListener('mousemove', handlePageScroll);
+          document.addEventListener('touchmove', handlePageScroll, { passive: true });
+
+          // Stocker la position initiale
+          document.addEventListener('mousemove', storeMousePosition);
+          document.addEventListener('touchmove', storeMousePosition, { passive: true });
         });
 
-        // Événement pendant le mouvement
-        drake.on("shadow", function (el, container, source) {
-          console.log("✓ Moving element");
-        });
+        // Stocker la position de la souris
+        function storeMousePosition(e) {
+          if (e.type === 'touchmove' && e.touches && e.touches[0]) {
+            lastMouseY = e.touches[0].clientY;
+          } else if (e.type === 'mousemove') {
+            lastMouseY = e.clientY;
+          }
+        }
 
         // Événement à la fin du drag
-        drake.on("drop", function (el, target, source, sibling) {
-          console.log("✓ Drop successful");
+        drake.on("drop", function(el, target, source, sibling) {
+          cleanup();
           el.classList.remove("draggable-flexgrid__item--drag");
-
-          // retirer les listeners
-          document.removeEventListener("mousemove", autoScrollDuringDrag);
-          document.removeEventListener("touchmove", autoScrollDuringDrag);
-
-          // Mettre à jour l'ordre
           updateOrderFromDragula(grid);
         });
 
         // Événement si le drag est annulé
-        drake.on("cancel", function (el, container, source) {
-          console.log("✗ Drag cancelled");
+        drake.on("cancel", function(el) {
+          cleanup();
           el.classList.remove("draggable-flexgrid__item--drag");
-
-          // retirer les listeners
-          document.removeEventListener("mousemove", autoScrollDuringDrag);
-          document.removeEventListener("touchmove", autoScrollDuringDrag);
         });
+
+        // Événement quand le drag se termine
+        drake.on("dragend", function(el) {
+          cleanup();
+        });
+
+        // Nettoyage
+        function cleanup() {
+          isDragging = false;
+          stopAutoScroll();
+
+          document.removeEventListener('mousemove', handlePageScroll);
+          document.removeEventListener('touchmove', handlePageScroll);
+          document.removeEventListener('mousemove', storeMousePosition);
+          document.removeEventListener('touchmove', storeMousePosition);
+        }
       });
 
       // Fonction pour mettre à jour l'ordre après un drag Dragula
@@ -84,10 +160,7 @@
         var order = [];
 
         items.forEach(function (item, index) {
-          // Mettre à jour data-index
           item.setAttribute("data-index", index);
-
-          // Récupérer l'ID de l'entité
           var entityId = item.getAttribute("data-entity-id");
           if (entityId) {
             order.push(entityId);
@@ -96,14 +169,12 @@
 
         console.log("New order:", order);
 
-        // Mettre à jour le champ hidden
         var orderInput = grid.querySelector(".vbo-media-drop-order");
         if (orderInput) {
           orderInput.value = JSON.stringify(order);
           console.log("Updated hidden field:", orderInput.value);
         }
 
-        // Sauvegarder via AJAX
         saveOrderToServer(order);
       }
 
@@ -131,79 +202,19 @@
           });
       }
 
-      // Fonction d'auto-scroll pendant le drag
-      function autoScrollDuringDrag(e) {
-        const margin = 80; // px depuis le haut/bas de l'écran pour déclencher le scroll
-        const speed = 15; // pixels à chaque tick
-
-        // Déterminer la position Y selon le type d'événement
-        let y;
-        if (e.touches && e.touches.length > 0) {
-          y = e.touches[0].clientY;
-        } else if (e.clientY !== undefined) {
-          y = e.clientY;
-        } else {
-          return; // impossible de déterminer Y
-        }
-
-        // console.log("Auto-scroll check at Y:", y);
-
-        if (y < margin) {
-          // console.log("Scrolling up");
-          window.scrollBy({ top: -speed });
-        } else if (y > window.innerHeight - margin) {
-          // console.log("Scrolling down");
-          window.scrollBy({ top: speed });
-        }
-      }
-
-      const container = document.querySelector(".draggable-flexgrid");
-
-      container.addEventListener(
-        "touchmove",
-        function (e) {
-          const scrollTop = container.scrollTop;
-          const scrollHeight = container.scrollHeight;
-          const offsetHeight = container.offsetHeight;
-
-          // Si on est tout en haut et qu'on scroll vers le haut, ne pas bloquer
-          if (scrollTop <= 0 && e.touches[0].clientY > container._lastY) {
-            // rien
-          }
-          // Si on est tout en bas et qu'on scroll vers le bas, ne pas bloquer
-          else if (
-            scrollTop + offsetHeight >= scrollHeight &&
-            e.touches[0].clientY < container._lastY
-          ) {
-            // rien
-          }
-          // Sinon, on veut bloquer le scroll natif pour drag
-          else {
-            e.preventDefault();
-          }
-
-          container._lastY = e.touches[0].clientY;
-        },
-        { passive: false }
-      );
-
       // ========================================
       // POPUP - Gestion du menu "Plus..."
       // ========================================
-      once("entity-popup2", ".js-more-info-wrapper", context).forEach(function (
-        wrapper
-      ) {
+      once("entity-popup2", ".js-more-info-wrapper", context).forEach(function (wrapper) {
         const button = wrapper.querySelector(".js-entity-id-btn");
         const popup = wrapper.querySelector(".js-entity-popup");
 
         if (!button || !popup) return;
 
-        // Bloquer Dragula AVANT le drag
         wrapper.addEventListener("mousedown", function (e) {
           e.stopPropagation();
         });
 
-        // Ouvrir/fermer le popup
         button.addEventListener("click", function (e) {
           e.stopPropagation();
 
@@ -217,7 +228,6 @@
             popup.style.display === "block" ? "none" : "block";
         });
 
-        // Fermer le popup quand on clique dedans
         popup.addEventListener("click", function () {
           popup.style.display = "none";
         });
@@ -225,13 +235,10 @@
 
       // Fermer tous les popups si on clique ailleurs
       document.addEventListener("click", function (e) {
-        // Ne pas fermer si on clique sur un bouton de popup
-        console.log("Document click:", e.target);
         if (
           !e.target.closest(".js-more-info-wrapper") &&
           !e.target.closest(".dropbutton-wrapper")
         ) {
-          console.log("Closing all popups");
           document.querySelectorAll(".js-entity-popup").forEach(function (p) {
             p.style.display = "none";
           });

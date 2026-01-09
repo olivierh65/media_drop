@@ -1,9 +1,13 @@
 /* === ITEM === */
 
 .draggable-flexgrid {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* smooth scroll iOS */
-  touch-action: pan-y; /* autoriser scroll vertical */
+  /* KEEP or ADD: */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  /* Permettre le scroll de la page entière */
+  overflow: visible;
 }
 
 .draggable-flexgrid__item {
@@ -16,7 +20,7 @@
     "entity entity";
   position: relative;
   cursor: default;
-  touch-action: pan-y;
+  touch-action: auto;
   user-select: none;
   border: #0071b8 1px solid;
   border-radius: 4px;
@@ -53,6 +57,7 @@
   justify-content: center;
   z-index: 10;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: none; /* désactive le scroll pendant le drag */
 }
 
 .draggable-flexgrid__handle:active {
