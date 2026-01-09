@@ -2,6 +2,7 @@
 
 namespace Drupal\media_drop\Plugin\views\style;
 
+use Drupal\Core\Url;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\style\StylePluginBase;
 
@@ -393,6 +394,7 @@ class DraggableFlexGridWithGroups extends StylePluginBase {
 
   /**
    * Get the media image URL for a given row index and field ID.
+   *
    * Used in the Twig template.
    *
    * @param int $index
@@ -440,6 +442,95 @@ class DraggableFlexGridWithGroups extends StylePluginBase {
       }
     }
     return [0, 0];
+  }
+
+  /**
+   * Retourne toutes les informations pertinentes d'un media.
+   *
+   * @param int $index
+   *   L'index de la ligne dans la vue.
+   * @param string|null $image_style
+   *   (optionnel) Nom du style d'image si applicable.
+   *
+   * @return array
+   *   Tableau contenant les informations du media, ou vide si inexistant.
+   */
+  public function getMediaFullInfo($index, $image_style = NULL) {
+    if (!isset($this->view->result[$index])) {
+      return [];
+    }
+
+    $row = $this->view->result[$index];
+    $entity = $row->_entity;
+
+    // Vérifier que c'est bien une entité media.
+    if ($entity->getEntityTypeId() !== 'media') {
+      return [];
+    }
+
+    $info = [];
+    $info['bundle'] = $entity->bundle();
+    $info['id'] = $entity->id();
+    $info['label'] = $entity->label();
+
+    // Source field (généralement field_media_image ou thumbnail)
+    $source_field_def = $entity->getSource()->getSourceFieldDefinition($entity->bundle->entity);
+    $field_name = $source_field_def->getName();
+
+    // Récupérer l'entité fichier si existante.
+    if ($entity->hasField($field_name) && !$entity->get($field_name)->isEmpty()) {
+      $file = $entity->get($field_name)->entity;
+
+      if ($file) {
+        // Chemin réel sur le disque.
+        $real_path = \Drupal::service('file_system')->realpath($file->getFileUri());
+        $info['file_path'] = $real_path;
+
+        $info['file_uri'] = $file->getFileUri();
+
+        // URL publique.
+        // URL publique si le fichier est dans public://.
+        if (\Drupal::service('stream_wrapper_manager')->getScheme($info['file_uri']) === 'public') {
+          $info['url'] = \Drupal::service('file_url_generator')->generateString($info['file_uri']);
+        }
+        // Fichier privé : URL via le route system/files.
+        elseif (\Drupal::service('stream_wrapper_manager')->getScheme($info['file_uri']) === 'private') {
+          $info['url'] = Url::fromRoute('system.files', ['file' => $file->getFilename()], ['absolute' => TRUE])->toString();
+        }
+
+        // Taille de l'image si applicable.
+        if (file_exists($real_path)) {
+          $image_info = getimagesize($real_path);
+          $info['width'] = $image_info[0];
+          $info['height'] = $image_info[1];
+        }
+        else {
+          $info['width'] = 0;
+          $info['height'] = 0;
+        }
+
+        // Infos supplémentaires du fichier.
+        $info['file_name'] = $file->getFilename();
+        $info['mime_type'] = $file->getMimeType();
+        $info['size_bytes'] = $file->getSize();
+
+        // ALT et description si disponible.
+        if ($entity->hasField('field_media_image') && !$entity->get('field_media_image')->isEmpty()) {
+          $media_field = $entity->get('field_media_image')->first();
+          $info['alt'] = $media_field->alt ?? '';
+          $info['description'] = $media_field->title ?? '';
+        }
+      }
+    }
+
+    // Tous les champs textuels disponibles.
+    foreach ($entity->getFields() as $field_name => $field) {
+      if ($field->getFieldDefinition()->getType() === 'string' || $field->getFieldDefinition()->getType() === 'text_long') {
+        $info['fields'][$field_name] = $entity->get($field_name)->value;
+      }
+    }
+
+    return $info;
   }
 
 }

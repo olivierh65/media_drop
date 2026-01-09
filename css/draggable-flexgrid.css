@@ -189,9 +189,12 @@
   background-color: #c6c9d5;
 }
 
-.popup-field {
-  font-size: 1rem;
-  font-weight: bold;
+
+
+.js-entity-popup .popup-field {
+  display: block;       /* chaque champ sur sa propre ligne */
+  width: 100%;          /* occupe toute la largeur du popup */
+  font-size: 0.8em;     /* taille de police légèrement plus petite */
 }
 
 /* === DRAGULA CLASSES === */

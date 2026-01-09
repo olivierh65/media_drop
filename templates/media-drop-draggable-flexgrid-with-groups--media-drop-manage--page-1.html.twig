@@ -100,10 +100,11 @@
         {% if field_groups_config %}
           <div class="draggable-flexgrid__content">
             {% if field_groups_config.group_1.enabled %}
-            {% set size = view.style_plugin.getMediaImageSize(row_index, field_groups_config.group_6.fields|filter(v => v != 0)|first) %}
+            {% set infos = view.style_plugin.getMediaFullInfo(row_index) %}
+
               <div class="views-field views-field-thumbnail__target-id media-drop-thumbnail-field"
                 data-image-src="{{ view.style_plugin.getMediaImageUrl(row_index, field_groups_config.group_6.fields|filter(v => v != 0)|first) }}"
-                data-image-size="{{ size.width }}x{{ size.height }}">
+                data-image-infos="{{ infos.width }}x{{ infos.height }}">
                 {% for field_id, checked in field_groups_config.group_1.fields %}
                   {% if checked and view.field[field_id] is defined %}
                       <span class="field-content">
@@ -156,9 +157,30 @@
             <div class="js-more-info-wrapper" data-once="entity-popup">
               <button type="button" class="js-entity-id-btn">Plus...</button>
               <div class="js-entity-popup">
-                <span class="popup-image-size popup-field">
-                  size : {{ size.width }}x{{ size.height }}
+                <span class="popup-image-filepath popup-field">
+                  filepath : {{ infos.file_path }}
                 </span>
+                <span class="popup-image-filesize popup-field">
+                  filesize : {{ infos.size_bytes }}
+                </span>
+                <span class="popup-image-mime popup-field">
+                  Mime : {{ infos.mime_type }}
+                </span>
+                <span class="popup-image-size popup-field">
+                  size : {{ infos.width }}x{{ infos.height }}
+                </span>
+                {% for field_id, checked in field_groups_config.group_6.fields %}
+                  {% if checked and view.field[field_id] is defined %}
+                    <span class="popup-{{field_id}}  popup-field">
+                      {{ view.style_plugin.getField(row_index, field_id) }}
+                    </span>
+                  {% endif %}
+                {% endfor %}
+                {% for name, value in infos.fields %}
+                  <span class="popup-{{name}}  popup-field">
+                    {{ name }} : {{ value }}
+                  </span>
+                {% endfor %}
                 {% for field_id, checked in field_groups_config.group_4.fields %}
                   {% if checked and view.field[field_id] is defined %}
                     <span class="popup-{{field_id}}  popup-field">

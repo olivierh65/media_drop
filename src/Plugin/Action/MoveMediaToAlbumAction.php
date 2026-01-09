@@ -584,8 +584,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
           // Only include custom fields that are not excluded types or EXIF fields.
           if (!$is_base_field &&
-            !in_array($field_type, $excluded_field_types) &&
-            !$this->isExifField($field_name)) {
+          !in_array($field_type, $excluded_field_types) &&
+          !$this->isExifField($field_name)) {
             $media_fields[$field_name] = [
               'config' => $field_config,
               'type' => $field_type,
@@ -1140,8 +1140,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
             // Only include custom fields that are not excluded types or EXIF fields.
             if (!$is_base_field &&
-              !in_array($field_type, $excluded_field_types) &&
-              !$this->isExifField($field_name)) {
+            !in_array($field_type, $excluded_field_types) &&
+            !$this->isExifField($field_name)) {
               // Check if field already exists in union.
               if (!isset($editable_fields[$field_name])) {
                 // Add new field.
@@ -1199,7 +1199,7 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
     // For taxonomy fields, include the target vocabularies in the designation.
     if ($field_type === 'entity_reference' &&
-      $field_config->getSetting('target_type') === 'taxonomy_term') {
+    $field_config->getSetting('target_type') === 'taxonomy_term') {
       $target_bundles = $field_config->getSetting('handler_settings')['target_bundles'] ?? [];
       $vocab_key = !empty($target_bundles) ?
         implode(',', array_keys($target_bundles)) : 'all';
@@ -1307,8 +1307,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
             // Only include custom fields that are not excluded types or EXIF fields.
             if (!$is_base_field &&
-              !in_array($field_type, $excluded_field_types) &&
-              !$this->isExifField($field_config->getName())) {
+            !in_array($field_type, $excluded_field_types) &&
+            !$this->isExifField($field_config->getName())) {
 
               // Get the designation for this field.
               $designation = $this->getFieldDesignation($field_config);
@@ -1403,8 +1403,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
               '#attributes' => [
                 'class' => ['form-autocomplete'],
                 'data-autocomplete-path' => Url::fromRoute(
-              'media_drop.taxonomy_autocomplete',
-              ['vocabularies' => $vocab_string]
+            'media_drop.taxonomy_autocomplete',
+            ['vocabularies' => $vocab_string]
                 )->toString(),
               ],
             ];
@@ -1729,8 +1729,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
         $default_value = $this->configuration['depot_field_values'][$designation_key] ?? NULL;
 
         $step_2['depot_fields'][$designation_key]['value'] = $this->buildFieldWidget(
-          $field_config,
-          $default_value
+        $field_config,
+        $default_value
         );
 
         // Store the field names that belong to this designation for later processing.
@@ -1907,8 +1907,8 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
         $this->configuration['depot_field_values'] = [];
       }
       $this->configuration['depot_field_values'] = array_merge(
-        $this->configuration['depot_field_values'],
-        $values['step_2_wrapper']['step_2']['depot_fields']
+      $this->configuration['depot_field_values'],
+      $values['step_2_wrapper']['step_2']['depot_fields']
       );
     }
 
@@ -1942,25 +1942,34 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
 
     $order = $tempstore->get('ordered_media_ids');
 
-    $insert_order = [];
-    foreach ($entities as $entity) {
-      $key = array_search($entity->id(), $order);
-      if ($key !== FALSE) {
-        $insert_order[$key] = $entity;
-        \Drupal::logger('media_drop')->notice('Processing media @mid at order position @pos', [
-          '@mid' => $entity->id(),
-          '@pos' => $key,
-        ]);
+    // Check if entities have been ordered.
+    if ($order) {
+      $insert_order = [];
+      foreach ($entities as $entity) {
+        $key = array_search($entity->id(), $order);
+        if ($key !== FALSE) {
+          $insert_order[$key] = $entity;
+          \Drupal::logger('media_drop')->notice('Processing media @mid at order position @pos', [
+            '@mid' => $entity->id(),
+            '@pos' => $key,
+          ]);
+        }
+        else {
+          \Drupal::logger('media_drop')->notice('Processing media @mid with no specific order', [
+            '@mid' => $entity->id(),
+          ]);
+        }
       }
-      else {
-        \Drupal::logger('media_drop')->notice('Processing media @mid with no specific order', [
-          '@mid' => $entity->id(),
-        ]);
+
+      foreach ($insert_order as $entity) {
+        $this->execute($entity);
       }
     }
-
-    foreach ($insert_order as $entity) {
-      $this->execute($entity);
+    else {
+      // No specific order - process as is.
+      foreach ($entities as $entity) {
+        $this->execute($entity);
+      }
     }
   }
 
