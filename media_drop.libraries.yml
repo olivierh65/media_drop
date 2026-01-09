@@ -25,11 +25,13 @@ admin_grid:
   version: 1.x
   css:
     theme:
+      css/dragula/dragula.css: {}
       css/media-drop-admin-grid.css: {}
       css/draggable-flexgrid.css: {}
       css/media-drop-manage-image.css: {}
   js:
     js/Sortable/Sortable.js: {}
+    js/dragula/dragula.js: {}
     js/media-drop-multi-select.js: {}
     js/fix_vbo_counter.js: {}
     js/draggable-flexgrid.js: {}
