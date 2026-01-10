@@ -1998,19 +1998,6 @@ class MoveMediaToAlbumAction extends ConfigurableActionBase implements Container
       return;
     }
 
-    // Récupérer le service de stockage temporaire privé.
-    $tempstore_factory = \Drupal::service('tempstore.private');
-
-    // Créer ou récupérer une collection "media_drop".
-    $tempstore = $tempstore_factory->get('media_drop');
-
-    $order = $tempstore->get('ordered_media_ids');
-
-    if ($order && is_array($order)) {
-      \Drupal::logger('media_drop')->notice('Order received: @order', ['@order' => implode(',', $order)]);
-      // Ici tu peux réordonner, traiter, ou sauvegarder selon l'ordre.
-    }
-
     // Check if media is already in the depot - skip if it is.
     $existing_media = $this->getMediaIdsInDepot($this->depotNode);
     $media_id = $entity->id();
