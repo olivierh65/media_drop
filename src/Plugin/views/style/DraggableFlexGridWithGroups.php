@@ -501,8 +501,15 @@ class DraggableFlexGridWithGroups extends StylePluginBase {
         // Taille de l'image si applicable.
         if (file_exists($real_path)) {
           $image_info = getimagesize($real_path);
-          $info['width'] = $image_info[0];
-          $info['height'] = $image_info[1];
+          if (is_array($image_info)) {
+            $info['width'] = $image_info[0];
+            $info['height'] = $image_info[1];
+          }
+          else {
+            // Video dont't have getimagesize info.
+            $info['width'] = 0;
+            $info['height'] = 0;
+          }
         }
         else {
           $info['width'] = 0;
