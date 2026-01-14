@@ -3,17 +3,20 @@
 namespace Drupal\media_drop\Plugin\Action;
 
 /**
- * Moves media entities to an album node with optional directory and field values.
+ * Adds media entities to an album node WITHOUT moving the media files.
+ *
+ * This action only adds media references to the album node, without changing
+ * the physical location or directory of the media files.
  *
  * @Action(
- *   id = "media_drop_move_to_album",
- *   label = @Translation("Move to Album"),
+ *   id = "media_drop_add_to_album",
+ *   label = @Translation("Add to Album"),
  *   type = "media",
  *   category = @Translation("Media Drop"),
  *   confirm = TRUE
  * )
  */
-class MoveMediaToAlbumAction extends BaseAlbumAction {
+class AddToAlbumAction extends BaseAlbumAction {
 
   /**
    *
@@ -91,35 +94,6 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
         '@mid' => $media_id,
       ]);
       return;
-    }
-
-    // Move to directory if configured (including ROOT which is NULL in database, 0 internally).
-    if (isset($this->configuration['directory_tid']) && $this->configuration['directory_tid'] !== NULL && $this->configuration['directory_tid'] !== '') {
-
-      if ($entity->hasField('directory')) {
-        // Set directory field. For ROOT (0 or -1), convert to NULL for database storage.
-        if ($this->configuration['directory_tid'] == 0 || $this->configuration['directory_tid'] == -1) {
-          // ROOT directory - set as NULL in database.
-          $entity->set('directory', NULL);
-        }
-        else {
-          // Regular directory - set the target_id.
-          $entity->set('directory', $this->configuration['directory_tid']);
-        }
-      }
-      else {
-        \Drupal::logger('media_drop')->warning('execute() - Media @mid does not have directory field', [
-          '@mid' => $entity->id(),
-        ]);
-      }
-
-      // Move the physical files to the corresponding directory.
-      $this->taxonomyService->moveMediaFilesToDirectory($entity, $this->configuration['directory_tid'], TRUE);
-    }
-    else {
-      \Drupal::logger('media_drop')->notice('execute() - No directory_tid configured (value: @val)', [
-        '@val' => var_export($this->configuration['directory_tid'], TRUE),
-      ]);
     }
 
     // Add media to album node fields.
