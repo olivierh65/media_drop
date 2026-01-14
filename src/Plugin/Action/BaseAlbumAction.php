@@ -61,6 +61,14 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
    */
   protected $usedDirectoriesCache = [];
 
+
+  /**
+   * Is media must be moved to another directory.
+   *
+   * @var bool
+   */
+  protected $move;
+
   /**
    * Constructs an AddMediaToalbumAction object.
    */
@@ -1783,14 +1791,15 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
       ];
     }
 
-    // Directory selection (if media_directories is enabled).
-    if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
-      $directory_element = $this->buildDirectorySelector();
-      if ($directory_element) {
-        $step_2['directory_tid'] = $directory_element;
+    if ($this->move) {
+      // Directory selection (if media_directories is enabled).
+      if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
+        $directory_element = $this->buildDirectorySelector();
+        if ($directory_element) {
+          $step_2['directory_tid'] = $directory_element;
+        }
       }
     }
-
     // Show album editable fields - grouped by designation.
     $grouped_album_fields = $this->getAlbumEditableFieldsGrouped($this->albumNode);
 

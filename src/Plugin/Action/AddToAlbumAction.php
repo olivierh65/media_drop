@@ -2,6 +2,9 @@
 
 namespace Drupal\media_drop\Plugin\Action;
 
+use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+
 /**
  * Adds media entities to an album node WITHOUT moving the media files.
  *
@@ -17,6 +20,15 @@ namespace Drupal\media_drop\Plugin\Action;
  * )
  */
 class AddToAlbumAction extends BaseAlbumAction {
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, DirectoryService $taxonomy_service) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $taxonomy_service);
+
+    $this->move = FALSE;
+  }
 
   /**
    *
