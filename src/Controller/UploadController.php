@@ -921,6 +921,21 @@ class UploadController extends ControllerBase {
     foreach ($uploads as $upload) {
       $media = Media::load($upload->media_id);
       if ($media) {
+        $source_field = $this->getMediaSourceField($media->bundle());
+        if ($source_field && $media->hasField($source_field) && !$media->get($source_field)->isEmpty()) {
+          $file = $media->get($source_field)->entity;
+          if ($file) {
+            $file_uri = $file->getFileUri();
+            if (!str_starts_with($file_uri, $depot->base_directory)) {
+              // The file is no longer in the depot directory - skip it.
+              $this->database->delete('media_drop_uploads')
+                ->condition('id', $upload->id)
+                ->condition('media_id', $media->id())
+                ->execute();
+              continue;
+            }
+          }
+        }
         $media_list[] = [
           'id' => $media->id(),
           'name' => $media->label(),
