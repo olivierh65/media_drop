@@ -902,7 +902,7 @@ class UploadController extends ControllerBase {
     // that have been added to albums (which may have different file paths
     // than the depot directory structure).
     // The uploadPage() method still performs cleanup at page load time.
-    // $this->cleanupMissingMedia($depot, TRUE);.
+    $this->cleanupMissingMedia($depot, TRUE);
     $session_id = $this->getSessionId();
     $query = $this->database->select('media_drop_uploads', 'u')
       ->fields('u')
@@ -1278,6 +1278,8 @@ class UploadController extends ControllerBase {
 
       if (!$media) {
         // Media entity doesn't exist, remove from tracking.
+        $this->logger->info('Media entity missing for upload ID: ' . $upload->id .
+         ' bundle: ' . $media->bundle() . ' name: ' . $media->label());
         $this->database->delete('media_drop_uploads')
           ->condition('id', $upload->id)
           ->execute();
@@ -1290,6 +1292,8 @@ class UploadController extends ControllerBase {
 
         if (!$media->hasField($source_field) || $media->get($source_field)->isEmpty()) {
           // No file attached, delete the media.
+          $this->logger->info('Media entity with no file for upload ID: ' . $upload->id .
+           ' bundle: ' . $media->bundle() . ' name: ' . $media->label());
           $media->delete();
           $this->database->delete('media_drop_uploads')
             ->condition('id', $upload->id)
@@ -1318,6 +1322,8 @@ class UploadController extends ControllerBase {
 
         // If file doesn't exist, delete the media and tracking record.
         if (!$file_exists) {
+          $this->logger->info('Deleting media with missing file for upload ID: ' . $upload->id .
+           ' bundle: ' . $media->bundle() . ' name: ' . $media->label() . ' path: ' . $file_path);
           $media->delete();
           $this->database->delete('media_drop_uploads')
             ->condition('id', $upload->id)

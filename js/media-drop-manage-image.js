@@ -385,14 +385,14 @@
         // Afficher la vidéo
         const videoElement = $modalVideo.get(0);
         const sourceElement = $modalVideo.find('source').get(0);
-        
+
         // Mettre à jour la source
         sourceElement.src = image.src;
         sourceElement.type = image.mimeType;
-        
+
         // Charger la vidéo avec les nouvelles sources
         videoElement.load();
-        
+
         // Afficher la vidéo
         $modalVideo.show();
         $imageLoader.hide();

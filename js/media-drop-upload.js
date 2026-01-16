@@ -223,13 +223,22 @@
           // Show uploading status
           self.setFileStatus(file, "uploading", "", false, this);
 
-          // Store file info for retry capability
-          uploadFileData[file.name] = {
-            file: file,
-            userName: userName,
-            subfolder: folder,
-            dropzone: this,
-          };
+          // ✅ UPDATED: Merge with existing stored data instead of overwriting
+          // Original metadata was already stored in addedfile event
+          if (!uploadFileData[file.name]) {
+            uploadFileData[file.name] = {};
+          }
+          uploadFileData[file.name].file = file;
+          uploadFileData[file.name].userName = userName;
+          uploadFileData[file.name].subfolder = folder;
+          uploadFileData[file.name].dropzone = this;
+          // Keep originalName and mimeType if already stored from addedfile
+          if (!uploadFileData[file.name].originalName) {
+            uploadFileData[file.name].originalName = file.name;
+          }
+          if (!uploadFileData[file.name].mimeType) {
+            uploadFileData[file.name].mimeType = file.type;
+          }
         },
 
         success: function (file, response) {
@@ -392,6 +401,21 @@
           "(" + (file.size / 1024 / 1024).toFixed(2) + " MB)"
         );
 
+        // ✅ IMPORTANT: Store original file metadata immediately when added
+        // This protects against Dropzone chunking corruption where filename
+        // becomes "blob" and MIME type becomes "application/octet-stream"
+        if (!uploadFileData[file.name]) {
+          uploadFileData[file.name] = {
+            file: file,
+            originalName: file.name,
+            mimeType: file.type,
+          };
+          console.log("💾 Stored original metadata:", {
+            name: file.name,
+            type: file.type,
+          });
+        }
+
         self.setFileStatus(
           file,
           "uploading",
@@ -550,6 +574,27 @@
      */
     retryUpload: function (file, dropzone) {
       const self = this;
+
+      // ✅ CRITICAL: Restore original filename and MIME type before retry
+      // This handles Dropzone chunking issue where filename becomes "blob"
+      // and MIME type becomes "application/octet-stream" on retry
+      for (const storedName in uploadFileData) {
+        const stored = uploadFileData[storedName];
+        if (stored.file === file) {
+          // Found the stored data for this file - restore original metadata
+          console.log("🔄 Restoring original metadata for retry:");
+          console.log("  Original name:", stored.originalName);
+          console.log("  Original MIME:", stored.mimeType);
+          console.log("  Current name:", file.name);
+          console.log("  Current MIME:", file.type);
+
+          file.name = stored.originalName;
+          file.type = stored.mimeType;
+
+          console.log("✅ Metadata restored - name:", file.name, "type:", file.type);
+          break;
+        }
+      }
 
       // Reset file upload state
       file.upload = {
