@@ -40,6 +40,13 @@
     </div>
   {% else %}
     {% for row in rows %}
+      {% set infos = view.style_plugin.getMediaFullInfo(loop.index0) %}
+      {% set image_alt = '' %}
+      {% for field_id, checked in field_groups_config.group_6.fields %}
+        {% if checked and view.field[field_id] is defined %}
+          {% set image_alt = view.style_plugin.getField(loop.index0, field_id)|striptags|trim %}
+        {% endif %}
+      {% endfor %}
       {# Récupérer l'entité et son ID #}
       {% set entity = row['#row']._entity %}
       {% set entity_id = entity ? entity.id() : loop.index %}
@@ -55,17 +62,17 @@
         <div class="draggable-flexgrid__menu-handle" title="{{ 'Action menu'|t }}">
           <div class="draggable-flexgrid__handle" title="{{ 'Drag to reorder'|t }}">
             <svg class="drag-icon" width="1.8rem" height="1.8rem" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <!-- Flèches positionnées vers les extrémités -->
-              <!-- Haut -->
+              {# -- Flèches positionnées vers les extrémités -- #}
+              {# -- Haut --#}
               <line x1="16" y1="6" x2="16" y2="14"/>
               <polyline points="12,10 16,6 20,10"/>
-              <!-- Bas -->
+              {# -- Bas --#}
               <line x1="16" y1="26" x2="16" y2="18"/>
               <polyline points="12,22 16,26 20,22"/>
-              <!-- Gauche -->
+              {# -- Gauche --#}
               <line x1="6" y1="16" x2="14" y2="16"/>
               <polyline points="10,12 6,16 10,20"/>
-              <!-- Droite -->
+              {# -- Droite --#}
               <line x1="26" y1="16" x2="18" y2="16"/>
               <polyline points="22,12 26,16 22,20"/>
             </svg>
@@ -75,11 +82,13 @@
             tabindex="0"
             title="{{ 'View full size'|t }}"
             aria-label="{{ 'View full size'|t }}"
-            data-image-src="{{ large_image_url }}"
-            data-image-alt="{{ image_alt }}">
+            data-image-src="{{ view.style_plugin.getMediaImageUrl(row_index, field_groups_config.group_6.fields|filter(v => v != 0)|first) }}"
+            data-image-alt="{{ image_alt }}"
+            data-mime-type="{{ infos.mime_type }}"
+            data-media-type="{{ infos.mime_type|split('/')|first }}">
             <svg class="zoom-icon" width="1.8rem" height="1.8rem" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"/>
-              <!-- Double ligne pour épaissir la base -->
+              {# -- Double ligne pour épaissir la base -- #}
               <line x1="19" y1="19" x2="28" y2="28" stroke-width="3"/>
               <line x1="18" y1="20" x2="27" y2="29" stroke-width="1.5" opacity="0.8"/>
               <line x1="11" y1="7" x2="11" y2="15"/>

@@ -13,6 +13,7 @@ use Drupal\media_taxonomy_service\Service\DirectoryService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleExtensionList;
+use Drupal\Core\File\FileSystemInterface;
 
 /**
  * Controller for media management page.
@@ -57,6 +58,13 @@ class ManageMediaController extends ControllerBase {
   protected $taxonomyService;
 
   /**
+   * The file system service.
+   *
+   * @var \Drupal\Core\File\FileSystemInterface
+   */
+  protected $fileSystem;
+
+  /**
    * Constructs a ManageMediaController object.
    */
   public function __construct(
@@ -65,12 +73,14 @@ class ManageMediaController extends ControllerBase {
     EntityTypeManagerInterface $entity_type_manager,
     ModuleExtensionList $extension_list_module,
     DirectoryService $taxonomy_service,
+    FileSystemInterface $file_system,
   ) {
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
     $this->entityTypeManager = $entity_type_manager;
     $this->extensionListModule = $extension_list_module;
     $this->taxonomyService = $taxonomy_service;
+    $this->fileSystem = $file_system;
   }
 
   /**
@@ -82,7 +92,8 @@ class ManageMediaController extends ControllerBase {
       $container->get('module_handler'),
       $container->get('entity_type.manager'),
       $container->get('extension.list.module'),
-      $container->get('media_drop.taxonomy_service')
+      $container->get('media_drop.taxonomy_service'),
+      $container->get('file_system')
     );
   }
 
@@ -208,9 +219,69 @@ class ManageMediaController extends ControllerBase {
     $view_executable->preExecute();
     $view_executable->execute();
 
+    // Filter out media without files to avoid showing broken references.
+    $this->filterMediaWithoutFiles($view_executable);
+
     $build = $view_executable->buildRenderable('page_1', []);
     $build['#attached']['library'][] = 'media_drop/admin_grid';
     return $build;
+  }
+
+  /**
+   * Filter out media entities that don't have files attached.
+   *
+   * This prevents displaying broken media references in the view.
+   * Don't delete media, just filter them out from the view results.
+   *
+   * @param \Drupal\views\ViewExecutable $view_executable
+   *   The view executable to filter.
+   */
+  protected function filterMediaWithoutFiles($view_executable) {
+    $mediaStorage = $this->entityTypeManager->getStorage('media');
+
+    $filtered_results = [];
+
+    foreach ($view_executable->result as $row) {
+      // Get the media entity from the row.
+      $media = $row->_entity ?? NULL;
+
+      if (!$media) {
+        continue;
+      }
+
+      try {
+        $source_field = $media->getSource()->getConfiguration()['source_field'];
+
+        // Check if media has the source field and it's not empty.
+        if (!$media->hasField($source_field) || $media->get($source_field)->isEmpty()) {
+          // Skip this media - no file attached.
+          continue;
+        }
+
+        // Check if file exists on disk.
+        $field_values = $media->get($source_field)->getValue();
+        if (!empty($field_values)) {
+          $file_entity = $media->get($source_field)->entity;
+          if ($file_entity) {
+            $file_uri = $file_entity->getFileUri();
+            $file_path = $this->fileSystem->realpath($file_uri);
+
+            if (file_exists($file_path)) {
+              // File exists, keep this result.
+              $filtered_results[] = $row;
+            }
+            // If file doesn't exist, skip it (don't add to filtered_results).
+          }
+        }
+      }
+      catch (\Exception $e) {
+        // On error, keep the result anyway.
+        $filtered_results[] = $row;
+      }
+    }
+
+    // Replace the results with filtered ones.
+    $view_executable->result = $filtered_results;
   }
 
   /**

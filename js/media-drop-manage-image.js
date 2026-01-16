@@ -44,6 +44,8 @@
           }
 
           const isValidImage = width > 0 && height > 0;
+          const mediaType = $trigger.data('media-type') || 'image';
+          const mimeType = $trigger.data('mime-type') || '';
 
           self.images.push({
             src: $trigger.data('image-src') || $fullImage.data('image-src') || $img.attr('src'),
@@ -51,7 +53,9 @@
             width: width,
             height: height,
             isValid: isValidImage,
-            index: index
+            index: index,
+            mediaType: mediaType,
+            mimeType: mimeType
           });
 
           $item.data('image-index', index);
@@ -159,18 +163,22 @@
     },
 
     createModal: function() {
-      // Créer la modale avec contrôles de zoom
+      // Créer la modale avec contrôles de zoom pour image et vidéo
       const modalHTML = `
         <div id="image-modal" class="image-modal">
           <div class="modal-overlay"></div>
           <div class="modal-content">
             <div class="modal-header">
-              <h3 class="modal-title">${Drupal.t('Image preview')}</h3>
+              <h3 class="modal-title">${Drupal.t('Media preview')}</h3>
               <button class="modal-close" aria-label="${Drupal.t('Close')}" title="${Drupal.t('Close')}">×</button>
             </div>
             <div class="modal-body">
               <div class="image-container">
-                <img class="modal-image" src="" alt="" loading="lazy"/>
+                <img class="modal-image" src="" alt="" loading="lazy" style="display:none;"/>
+                <video class="modal-video" style="display:none; max-width: 100%; max-height: 100%; object-fit: contain;" controls preload="metadata" playsinline>
+                  <source src="" type="">
+                  ${Drupal.t('Your browser does not support the video tag.')}
+                </video>
               </div>
               <div class="image-loader">
                 <div class="spinner"></div>
@@ -341,6 +349,7 @@
       const self = this;
       const $modal = $('#image-modal');
       const $modalImage = $modal.find('.modal-image');
+      const $modalVideo = $modal.find('.modal-video');
       const $imageLoader = $modal.find('.image-loader');
 
       // Vérifier si l'index est valide
@@ -350,6 +359,7 @@
       }
 
       const image = this.images[index];
+      const isVideo = image.mediaType === 'video';
 
       // Stocker l'image courante
       this.currentImage = image;
@@ -358,57 +368,81 @@
       this.currentZoom = 1;
 
       // Mettre à jour le titre
-      $modal.find('.modal-title').text(image.alt || Drupal.t('Image preview'));
+      $modal.find('.modal-title').text(image.alt || Drupal.t('Media preview'));
 
       // Afficher le loader
       $imageLoader.show();
       $modalImage.hide();
+      $modalVideo.hide();
 
       // Afficher la modale
       $modal.addClass('active');
       $modal.find('.modal-overlay').show();
       $('body').css('overflow', 'hidden');
 
-      // Créer une nouvelle image
-      const img = new Image();
+      // Gérer vidéo ou image
+      if (isVideo) {
+        // Afficher la vidéo
+        const videoElement = $modalVideo.get(0);
+        const sourceElement = $modalVideo.find('source').get(0);
+        
+        // Mettre à jour la source
+        sourceElement.src = image.src;
+        sourceElement.type = image.mimeType;
+        
+        // Charger la vidéo avec les nouvelles sources
+        videoElement.load();
+        
+        // Afficher la vidéo
+        $modalVideo.show();
+        $imageLoader.hide();
 
-      img.onload = function() {
-        // Vérifier si l'image est réellement chargée
-        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-          // Image invalide
-          self.showErrorImage();
-          $imageLoader.hide();
-          return;
-        }
-
-        // Mettre à jour les dimensions si elles étaient incorrectes
-        if (!image.width || !image.height || image.width <= 0 || image.height <= 0) {
-          image.width = img.naturalWidth;
-          image.height = img.naturalHeight;
-          image.isValid = true;
-        }
-
-        $modalImage
-          .attr('src', image.src)
-          .attr('alt', image.alt)
-          .css('transform', 'scale(1)')
-          .show();
-
-        // Ajuster la taille de la modale après le chargement
+        // Ajuster la taille et laisser le temps à la vidéo de charger les métadonnées
         setTimeout(() => {
           self.adjustModalSize();
         }, 100);
+      } else {
+        // Créer une nouvelle image
+        const img = new Image();
 
-        $imageLoader.hide();
-      };
+        img.onload = function() {
+          // Vérifier si l'image est réellement chargée
+          if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+            // Image invalide
+            self.showErrorImage();
+            $imageLoader.hide();
+            return;
+          }
 
-      img.onerror = function() {
-        console.error('Erreur de chargement de l\'image:', image.src);
-        self.showErrorImage();
-        $imageLoader.hide();
-      };
+          // Mettre à jour les dimensions si elles étaient incorrectes
+          if (!image.width || !image.height || image.width <= 0 || image.height <= 0) {
+            image.width = img.naturalWidth;
+            image.height = img.naturalHeight;
+            image.isValid = true;
+          }
 
-      img.src = image.src;
+          $modalImage
+            .attr('src', image.src)
+            .attr('alt', image.alt)
+            .css('transform', 'scale(1)')
+            .show();
+
+          // Ajuster la taille de la modale après le chargement
+          setTimeout(() => {
+            self.adjustModalSize();
+          }, 100);
+
+          $imageLoader.hide();
+        };
+
+        img.onerror = function() {
+          console.error('Erreur de chargement de l\'image:', image.src);
+          self.showErrorImage();
+          $imageLoader.hide();
+        };
+
+        img.src = image.src;
+      }
     },
 
     showErrorImage: function() {
