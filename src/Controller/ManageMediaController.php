@@ -223,6 +223,7 @@ class ManageMediaController extends ControllerBase {
     $this->filterMediaWithoutFiles($view_executable);
 
     $build = $view_executable->buildRenderable('page_1', []);
+    $build['#attached']['library'][] = 'media_album_av_common/dragula';
     $build['#attached']['library'][] = 'media_drop/admin_grid';
     return $build;
   }
