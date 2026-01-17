@@ -8,6 +8,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\media_drop\Traits\MediaFieldFilterTrait;
+use Drupal\media_field_representations\Traits\FieldWidgetBuilderTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -24,6 +25,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class BulkEditMediaAction extends ConfigurableActionBase implements ContainerFactoryPluginInterface {
 
   use MediaFieldFilterTrait;
+  use FieldWidgetBuilderTrait;
 
   /**
    * The entity type manager.
@@ -311,63 +313,17 @@ class BulkEditMediaAction extends ConfigurableActionBase implements ContainerFac
 
   /**
    * Build a form widget for a field.
+   *
+   * @deprecated Use FieldWidgetBuilderTrait::buildFieldWidget() instead.
    */
   protected function buildFieldWidget($field_definition, $default_value) {
-    $field_type = $field_definition->getType();
-    $field_name = $field_definition->getName();
+    // Override from trait to customize title for bulk edit context.
+    $widget = parent::buildFieldWidget($field_definition, $default_value);
 
-    switch ($field_type) {
-      case 'string':
-      case 'string_long':
-        return [
-          '#type' => 'textfield',
-          '#title' => $this->t('New value'),
-          '#default_value' => $default_value ? $default_value[0]['value'] : '',
-        ];
+    // Replace the title with bulk edit specific one.
+    $widget['#title'] = $this->t('New value');
 
-      case 'text':
-      case 'text_long':
-      case 'text_with_summary':
-        return [
-          '#type' => 'textarea',
-          '#title' => $this->t('New value'),
-          '#default_value' => $default_value ? $default_value[0]['value'] : '',
-        ];
-
-      case 'boolean':
-        return [
-          '#type' => 'checkbox',
-          '#title' => $this->t('Enable'),
-          '#default_value' => $default_value ? $default_value[0]['value'] : FALSE,
-        ];
-
-      case 'entity_reference':
-        $settings = $field_definition->getSettings();
-        $target_type = $settings['target_type'];
-
-        if ($target_type === 'taxonomy_term') {
-          $vocabularies = $settings['handler_settings']['target_bundles'] ?? [];
-
-          return [
-            '#type' => 'entity_autocomplete',
-            '#title' => $this->t('New value'),
-            '#target_type' => $target_type,
-            '#selection_settings' => ['target_bundles' => $vocabularies],
-            '#default_value' => $default_value && isset($default_value[0]['target_id'])
-              ? $this->entityTypeManager->getStorage($target_type)->load($default_value[0]['target_id'])
-              : NULL,
-          ];
-        }
-        break;
-
-      default:
-        return [
-          '#type' => 'textfield',
-          '#title' => $this->t('New value'),
-          '#description' => $this->t('Field type: @type', ['@type' => $field_type]),
-          '#default_value' => '',
-        ];
-    }
+    return $widget;
   }
 
   /**

@@ -10,6 +10,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\media_field_representations\Traits\FieldWidgetBuilderTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Url;
 
@@ -17,6 +18,7 @@ use Drupal\Core\Url;
  *
  */
 abstract class BaseAlbumAction extends ConfigurableActionBase implements ContainerFactoryPluginInterface {
+  use FieldWidgetBuilderTrait;
 
 
   /**
@@ -1448,111 +1450,13 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
    *
    * @return array
    *   Form element for the field.
+   *
+   * @deprecated Use the FieldWidgetBuilderTrait::buildFieldWidget() instead.
    */
   protected function buildFieldWidget($field_config, $default_value = NULL) {
-    $field_type = $field_config->get('field_type');
-    $field_label = $field_config->get('label');
-
-    switch ($field_type) {
-      case 'string':
-      case 'string_long':
-        return [
-          '#type' => $field_type === 'string_long' ? 'textarea' : 'textfield',
-          '#title' => $field_label,
-          '#default_value' => $default_value ? ($default_value[0]['value'] ?? '') : '',
-        ];
-
-      case 'integer':
-      case 'decimal':
-      case 'float':
-        return [
-          '#type' => 'textfield',
-          '#title' => $field_label,
-          '#default_value' => $default_value ? ($default_value[0]['value'] ?? '') : '',
-        ];
-
-      case 'boolean':
-        return [
-          '#type' => 'checkbox',
-          '#title' => $field_label,
-          '#default_value' => $default_value ? ($default_value[0]['value'] ?? FALSE) : FALSE,
-        ];
-
-      case 'entity_reference':
-        $target_type = $field_config->getSetting('target_type');
-        $handler_settings = $field_config->getSetting('handler_settings') ?? [];
-        $target_bundles = $handler_settings['target_bundles'] ?? [];
-
-        // For taxonomy terms, use textfield with custom autocomplete route.
-        if ($target_type === 'taxonomy_term') {
-          $vocab_ids = is_array($target_bundles) ? array_keys($target_bundles) : [];
-
-          if (!empty($vocab_ids)) {
-            $vocab_string = implode(',', $vocab_ids);
-
-            return [
-              '#type' => 'textfield',
-              '#title' => $field_label,
-              '#default_value' => $default_value && isset($default_value[0]['target_id']) ?
-              $this->entityTypeManager->getStorage('taxonomy_term')->load($default_value[0]['target_id'])->label() : '',
-              '#attributes' => [
-                'class' => ['form-autocomplete'],
-                'data-autocomplete-path' => Url::fromRoute(
-            'media_drop.taxonomy_autocomplete',
-            ['vocabularies' => $vocab_string]
-                )->toString(),
-              ],
-            ];
-          }
-
-          // Fallback if no vocabularies specified.
-          return [
-            '#type' => 'textfield',
-            '#title' => $field_label,
-            '#default_value' => $default_value && isset($default_value[0]['target_id']) ?
-            $this->entityTypeManager->getStorage('taxonomy_term')->load($default_value[0]['target_id'])->label() : '',
-            '#attributes' => [
-              'class' => ['form-autocomplete'],
-            ],
-          ];
-        }
-
-        // For other entity types (nodes, etc.), use entity_autocomplete.
-        return [
-          '#type' => 'entity_autocomplete',
-          '#target_type' => $target_type,
-          '#title' => $field_label,
-          '#default_value' => $default_value && isset($default_value[0]['target_id']) ? $this->entityTypeManager->getStorage($target_type)->load($default_value[0]['target_id']) : NULL,
-          '#selection_settings' => [
-            'target_bundles' => $target_bundles,
-          ],
-        ];
-
-      case 'list_string':
-      case 'list_integer':
-        $options = $field_config->getSetting('allowed_values') ?? [];
-        return [
-          '#type' => 'select',
-          '#title' => $field_label,
-          '#options' => ['' => $this->t('- None -')] + $options,
-          '#default_value' => $default_value ? ($default_value[0]['value'] ?? '') : '',
-        ];
-
-      case 'text':
-      case 'text_with_summary':
-        return [
-          '#type' => 'textarea',
-          '#title' => $field_label,
-          '#default_value' => $default_value ? ($default_value[0]['value'] ?? '') : '',
-        ];
-
-      default:
-        return [
-          '#type' => 'textfield',
-          '#title' => $field_label,
-          '#default_value' => $default_value ? ($default_value[0]['value'] ?? '') : '',
-        ];
-    }
+    // This method is now provided by FieldWidgetBuilderTrait.
+    // Calling parent implementation from trait.
+    return parent::buildFieldWidget($field_config, $default_value);
   }
 
   /**
