@@ -2,7 +2,7 @@
 
 namespace Drupal\media_drop\Plugin\Action;
 
-use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\media_album_av_common\Service\DirectoryService;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 
 /**

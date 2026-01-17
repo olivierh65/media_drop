@@ -1,7 +1,7 @@
 services:
-  # Alias to media_taxonomy_service.directory_service for backward compatibility
+  # Alias to media_album_av_common.directory_service for backward compatibility
   media_drop.taxonomy_service:
-    alias: media_taxonomy_service.directory_service
+    alias: media_album_av_common.directory_service
   media_drop.notification_service:
     class: Drupal\media_drop\Service\NotificationService
     arguments:

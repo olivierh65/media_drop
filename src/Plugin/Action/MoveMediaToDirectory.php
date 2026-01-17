@@ -7,7 +7,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\media_album_av_common\Service\DirectoryService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -32,7 +32,7 @@ class MoveMediaToDirectory extends ConfigurableActionBase implements ContainerFa
   /**
    * The taxonomy service.
    *
-   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   * @var \Drupal\media_album_av_common\Service\DirectoryService
    */
   protected $taxonomyService;
 

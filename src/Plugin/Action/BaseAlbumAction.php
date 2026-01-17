@@ -9,8 +9,8 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\field\Entity\FieldConfig;
-use Drupal\media_taxonomy_service\Service\DirectoryService;
-use Drupal\media_field_representations\Traits\FieldWidgetBuilderTrait;
+use Drupal\media_album_av_common\Service\DirectoryService;
+use Drupal\media_album_av_common\Traits\FieldWidgetBuilderTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Url;
 
@@ -31,7 +31,7 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
   /**
    * The taxonomy service.
    *
-   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   * @var \Drupal\media_album_av_common\Service\DirectoryService
    */
   protected $taxonomyService;
 

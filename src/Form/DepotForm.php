@@ -16,7 +16,7 @@ use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Extension\ModuleExtensionList;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Component\Datetime\TimeInterface;
-use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\media_album_av_common\Service\DirectoryService;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Drupal\Core\File\FileSystemInterface;
@@ -70,14 +70,14 @@ class DepotForm extends FormBase {
   /**
    * The taxonomy service.
    *
-   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   * @var \Drupal\media_album_av_common\Service\DirectoryService
    */
   protected $taxonomyService;
 
   /**
    * The directory service.
    *
-   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   * @var \Drupal\media_album_av_common\Service\DirectoryService
    */
   protected $directoryService;
 
@@ -152,7 +152,7 @@ class DepotForm extends FormBase {
     $container->get('request_stack'),
     $container->get('datetime.time'),
     $container->get('media_drop.taxonomy_service'),
-    $container->get('media_taxonomy_service.directory_service'),
+    $container->get('media_album_av_common.directory_service'),
     $container->get('module_handler'),
     $container->get('renderer'),
     $container->get('logger.factory')->get('media_drop'),
@@ -544,9 +544,9 @@ class DepotForm extends FormBase {
       '#attributes' => ['class' => ['button']],
     ];
 
-    // Attach jstree library and custom JS from media_taxonomy_service.
-    $form['#attached']['library'][] = 'media_taxonomy_service/directory_selector';
-    $form['#attached']['library'][] = 'media_taxonomy_service/taxonomy-manager';
+    // Attach jstree library and custom JS from media_album_av_common.
+    $form['#attached']['library'][] = 'media_album_av_common/directory_selector';
+    $form['#attached']['library'][] = 'media_album_av_common/taxonomy-manager';
 
     return $form;
   }

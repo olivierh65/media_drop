@@ -9,7 +9,7 @@ use Drupal\Component\Serialization\Yaml;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\media_drop\Traits\MediaFieldFilterTrait;
-use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\media_album_av_common\Service\DirectoryService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleExtensionList;
@@ -53,7 +53,7 @@ class ManageMediaController extends ControllerBase {
   /**
    * The taxonomy service.
    *
-   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   * @var \Drupal\media_album_av_common\Service\DirectoryService
    */
   protected $taxonomyService;
 

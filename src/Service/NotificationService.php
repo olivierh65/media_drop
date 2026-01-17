@@ -93,11 +93,12 @@ class NotificationService {
    * @deprecated Use notifyUploadBatch() instead.
    */
   public function notifyUpload($depot, $filename, $user_name, $media = NULL) {
-    $this->notifyUploadBatch($depot, [[
-      'filename' => $filename,
-      'user_name' => $user_name,
-      'media' => $media,
-    ],
+    $this->notifyUploadBatch($user_name, $depot, [
+      [
+        'filename' => $filename,
+        'user_name' => $user_name,
+        'media' => $media,
+      ],
     ]);
   }
 

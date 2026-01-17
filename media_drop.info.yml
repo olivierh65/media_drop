@@ -9,6 +9,5 @@ dependencies:
   - drupal:media
   - drupal:views
   - drupal:taxonomy
-  - media_taxonomy_service
-  - media_field_representations
+  - media_album_av_common
 configure: media_drop.admin_settings

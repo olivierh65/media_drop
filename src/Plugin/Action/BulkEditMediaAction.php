@@ -8,7 +8,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\media_drop\Traits\MediaFieldFilterTrait;
-use Drupal\media_field_representations\Traits\FieldWidgetBuilderTrait;
+use Drupal\media_album_av_common\Traits\FieldWidgetBuilderTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**

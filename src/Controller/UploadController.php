@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
-use Drupal\media_taxonomy_service\Service\DirectoryService;
+use Drupal\media_album_av_common\Service\DirectoryService;
 use Drupal\media_drop\Service\NotificationService;
 use Psr\Log\LoggerInterface;
 use Drupal\Core\Messenger\MessengerInterface;
@@ -110,7 +110,7 @@ class UploadController extends ControllerBase {
   /**
    * The directory service.
    *
-   * @var \Drupal\media_taxonomy_service\Service\DirectoryService
+   * @var \Drupal\media_album_av_common\Service\DirectoryService
    */
   protected $directoryService;
 
@@ -179,7 +179,7 @@ class UploadController extends ControllerBase {
       $container->get('module_handler'),
       $container->get('media_drop.taxonomy_service'),
       $container->get('media_drop.notification_service'),
-      $container->get('media_taxonomy_service.directory_service'),
+      $container->get('media_album_av_common.directory_service'),
       $container->get('logger.factory')->get('media_drop'),
       $container->get('messenger'),
     );
