@@ -45,3 +45,12 @@ media-info:
   css:
     theme:
       css/media-info.css: {}
+
+media-album-editor-widget:
+  version: 1.x
+  js:
+    js/media-album-editor-widget.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
