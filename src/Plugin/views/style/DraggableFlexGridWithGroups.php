@@ -332,8 +332,10 @@ class DraggableFlexGridWithGroups extends StylePluginBase {
       '#grouped_fields' => $this->getGroupedFields(),
     ];
 
-    // Ajouter les librairies.
-    $build['#attached']['library'][] = 'media_drop/draggable_flexgrid';
+    // Ajouter les librairies (now from media_album_av_common as the canonical source).
+    // Dragula must be loaded FIRST before draggable-flexgrid can use it.
+    $build['#attached']['library'][] = 'media_album_av_common/dragula';
+    $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid';
 
     // Ajouter les settings pour JavaScript.
     $build['#attached']['drupalSettings']['draggableFlexGrid'] = [

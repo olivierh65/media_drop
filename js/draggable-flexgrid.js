@@ -12,7 +12,7 @@
         var drake = dragula([grid], {
           moves: function(el, container, handle) {
             if (!el.classList.contains("js-draggable-item")) return false;
-            if (handle.closest(".js-more-info-wrapper")) return false;
+            if (handle.closest(".media-drop-info-wrapper")) return false;
             return handle.classList.contains("draggable-flexgrid__handle") ||
                    handle.closest(".draggable-flexgrid__handle");
           },
@@ -169,7 +169,7 @@
 
         console.log("New order:", order);
 
-        var orderInput = grid.querySelector(".vbo-media-drop-order");
+        var orderInput = grid.querySelector(".media-drop-vbo-order");
         if (orderInput) {
           orderInput.value = JSON.stringify(order);
           console.log("Updated hidden field:", orderInput.value);
@@ -205,9 +205,9 @@
       // ========================================
       // POPUP - Gestion du menu "Plus..."
       // ========================================
-      once("entity-popup2", ".js-more-info-wrapper", context).forEach(function (wrapper) {
-        const button = wrapper.querySelector(".js-entity-id-btn");
-        const popup = wrapper.querySelector(".js-entity-popup");
+      once("entity-popup2", ".media-drop-info-wrapper", context).forEach(function (wrapper) {
+        const button = wrapper.querySelector(".media-drop-info-button");
+        const popup = wrapper.querySelector(".media-drop-info-popup");
 
         if (!button || !popup) return;
 
@@ -218,7 +218,7 @@
         button.addEventListener("click", function (e) {
           e.stopPropagation();
 
-          document.querySelectorAll(".js-entity-popup").forEach(function (p) {
+          document.querySelectorAll(".media-drop-info-popup").forEach(function (p) {
             if (p !== popup) {
               p.style.display = "none";
             }
@@ -236,10 +236,10 @@
       // Fermer tous les popups si on clique ailleurs
       document.addEventListener("click", function (e) {
         if (
-          !e.target.closest(".js-more-info-wrapper") &&
+          !e.target.closest(".media-drop-info-wrapper") &&
           !e.target.closest(".dropbutton-wrapper")
         ) {
-          document.querySelectorAll(".js-entity-popup").forEach(function (p) {
+          document.querySelectorAll(".media-drop-info-popup").forEach(function (p) {
             p.style.display = "none";
           });
         }

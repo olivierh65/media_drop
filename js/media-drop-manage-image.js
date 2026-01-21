@@ -63,7 +63,7 @@
       });
 
       // Gestion du clic sur les boutons loupe
-      $(document).on('click', '.zoom-trigger', function(e) {
+      $(document).on('click', '.media-drop-zoom-trigger', function(e) {
         e.preventDefault();
         e.stopPropagation();
 
@@ -74,7 +74,7 @@
       });
 
       // Gestion des touches pour accessibilité
-      $(document).on('keydown', '.zoom-trigger', function(e) {
+      $(document).on('keydown', '.media-drop-zoom-trigger', function(e) {
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
 

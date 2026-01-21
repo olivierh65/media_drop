@@ -17,7 +17,7 @@
   grid-template-areas:
     "content menu"
     "content menu"
-    "entity entity";
+    "content menu";
   position: relative;
   cursor: default;
   touch-action: auto;
@@ -168,7 +168,7 @@
   margin-top: 0.2em;
 }
 
-.js-entity-popup {
+.media-drop-info-popup {
   display: none;
   position: absolute;
   top: 100%;
@@ -184,14 +184,14 @@
   cursor: pointer;
 }
 
-.js-entity-id-btn {
+.media-drop-info-button {
   border-radius: 5px;
   background-color: #c6c9d5;
 }
 
 
 
-.js-entity-popup .popup-field {
+.media-drop-info-popup .popup-field {
   display: block;       /* chaque champ sur sa propre ligne */
   width: 100%;          /* occupe toute la largeur du popup */
   font-size: 0.8em;     /* taille de police légèrement plus petite */

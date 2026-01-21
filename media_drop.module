@@ -101,8 +101,8 @@ function media_drop_views_data() {
  */
 function media_drop_preprocess_views_view(&$variables) {
   if ($variables['view']->id() === 'media_drop_manage') {
-    $variables['#attached']['library'][] = 'media_drop/admin_grid';
-    $variables['#attached']['library'][] = 'media_drop/media-info';
+    // $variables['#attached']['library'][] = 'media_drop/admin_grid';
+    // $variables['#attached']['library'][] = 'media_drop/media-info';
   }
 }
 

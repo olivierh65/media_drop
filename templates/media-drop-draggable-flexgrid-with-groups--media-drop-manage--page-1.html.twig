@@ -32,7 +32,7 @@
      data-gap="{{ gap }}"
      style="display: flex; flex-wrap: wrap; gap: {{ gap }}; justify-content: {{ justify }}; align-items: {{ align }};">
 
-  <input type="hidden" name="vbo_media_drop_order" class="vbo-media-drop-order" value="">
+  <input type="hidden" name="media-drop-vbo-order" class="media-drop-vbo-order" value="">
 
   {% if rows is empty %}
     <div class="draggable-flexgrid__empty">
@@ -60,8 +60,8 @@
 
         {# Poignée de drag #}
         <div class="draggable-flexgrid__menu-handle" title="{{ 'Action menu'|t }}">
-          <div class="draggable-flexgrid__handle" title="{{ 'Drag to reorder'|t }}">
-            <svg class="drag-icon" width="1.8rem" height="1.8rem" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <div class="draggable-flexgrid__menu-button media-drop-drag-icon draggable-flexgrid__handle" title="{{ 'Drag to reorder'|t }}">
+            <svg class="media-drop-drag-icon" width="1.8rem" height="1.8rem" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               {# -- Flèches positionnées vers les extrémités -- #}
               {# -- Haut --#}
               <line x1="16" y1="6" x2="16" y2="14"/>
@@ -77,7 +77,7 @@
               <polyline points="22,12 26,16 22,20"/>
             </svg>
           </div>
-          <div class="zoom-trigger"
+          <div class="draggable-flexgrid__menu-button media-drop-zoom-trigger"
             role="button"
             tabindex="0"
             title="{{ 'View full size'|t }}"
@@ -111,12 +111,12 @@
             {% if field_groups_config.group_1.enabled %}
             {% set infos = view.style_plugin.getMediaFullInfo(row_index) %}
 
-              <div class="views-field views-field-thumbnail__target-id media-drop-thumbnail-field"
+              <div class="views-field views-field-thumbnail__target-id media-drop-thumbnail"
                 data-image-src="{{ view.style_plugin.getMediaImageUrl(row_index, field_groups_config.group_6.fields|filter(v => v != 0)|first) }}"
                 data-image-infos="{{ infos.width }}x{{ infos.height }}">
                 {% for field_id, checked in field_groups_config.group_1.fields %}
                   {% if checked and view.field[field_id] is defined %}
-                      <span class="field-content">
+                      <span class="media-drop-field-content">
                         {{ view.style_plugin.getField(row_index, field_id) }}
                     </span>
                   {% endif %}
@@ -136,7 +136,7 @@
               </div>
             {% endif %}
             {% if field_groups_config.group_3.enabled %}
-              <div class="views-field-bundle media-drop-name-field">
+              <div class="media-drop-bundle media-drop-name-field media-drop-name-field">
                 {% for field_id, checked in field_groups_config.group_3.fields %}
                   {% if checked and view.field[field_id] is defined %}
                     {% if not loop.first %}
@@ -150,7 +150,7 @@
               </div>
             {% endif %}
             {% if field_groups_config.group_5.enabled %}
-              <div class="views-field-operations media-drop-action-field">
+              <div class="views-field-operations media-drop-action-field media-drop-action-field">
                 {% for field_id, checked in field_groups_config.group_5.fields %}
                   {% if checked and view.field[field_id] is defined %}
                     <span class="field-content">
@@ -163,36 +163,36 @@
           </div>
 
           {% if field_groups_config.group_4.enabled %}
-            <div class="js-more-info-wrapper" data-once="entity-popup">
-              <button type="button" class="js-entity-id-btn">Plus...</button>
-              <div class="js-entity-popup">
-                <span class="popup-image-filepath popup-field">
+            <div class="media-drop-info-wrapper media-drop-details-field" data-once="entity-popup">
+              <button type="button" class="media-drop-info-button">Plus...</button>
+              <div class="media-drop-info-popup">
+                <span class="media-drop-image-filepath media-drop-popup-field">
                   filepath : {{ infos.file_path }}
                 </span>
-                <span class="popup-image-filesize popup-field">
+                <span class="media-drop-image-filesize media-drop-popup-field">
                   filesize : {{ infos.size_bytes }}
                 </span>
-                <span class="popup-image-mime popup-field">
+                <span class="media-drop-image-mime media-drop-popup-field">
                   Mime : {{ infos.mime_type }}
                 </span>
-                <span class="popup-image-size popup-field">
+                <span class="media-drop-image-size media-drop-popup-field">
                   size : {{ infos.width }}x{{ infos.height }}
                 </span>
                 {% for field_id, checked in field_groups_config.group_6.fields %}
                   {% if checked and view.field[field_id] is defined %}
-                    <span class="popup-{{field_id}}  popup-field">
+                    <span class=media-drop-{{field_id}}  media-drop-popup-field">
                       {{ view.style_plugin.getField(row_index, field_id) }}
                     </span>
                   {% endif %}
                 {% endfor %}
                 {% for name, value in infos.fields %}
-                  <span class="popup-{{name}}  popup-field">
+                  <span class=media-drop-{{name}}  media-drop-popup-field">
                     {{ name }} : {{ value }}
                   </span>
                 {% endfor %}
                 {% for field_id, checked in field_groups_config.group_4.fields %}
                   {% if checked and view.field[field_id] is defined %}
-                    <span class="popup-{{field_id}}  popup-field">
+                    <span class=media-drop-{{field_id}}  media-drop-popup-field">
                       {{ view.style_plugin.getField(row_index, field_id) }}
                     </span>
                   {% endif %}
