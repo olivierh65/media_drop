@@ -2,7 +2,6 @@
 
 namespace Drupal\media_drop\Plugin\Action;
 
-use Drupal\views\Views;
 use Drupal\Core\Action\ConfigurableActionBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -12,7 +11,6 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\media_album_av_common\Service\DirectoryService;
 use Drupal\media_album_av_common\Traits\FieldWidgetBuilderTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\Core\Url;
 
 /**
  *
@@ -95,6 +93,54 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
   }
 
   /**
+   * Set media entities to process.
+   *
+   * @param array $media_entities
+   *   Array of media entities keyed by media ID.
+   *
+   * @return $this
+   */
+  public function setMediaEntities(array $media_entities) {
+    $this->mediaEntities = $media_entities;
+    return $this;
+  }
+
+  /**
+   * Get media entities.
+   *
+   * @return array
+   *   Array of media entities.
+   */
+  public function getMediaEntities() {
+    return $this->mediaEntities;
+  }
+
+  /**
+   * Add a single media entity.
+   *
+   * @param int $media_id
+   *   The media ID.
+   * @param \Drupal\media\MediaInterface $media
+   *   The media entity.
+   *
+   * @return $this
+   */
+  public function addMediaEntity($media_id, $media) {
+    $this->mediaEntities[$media_id] = $media;
+    return $this;
+  }
+
+  /**
+   * Check if media entities have been set.
+   *
+   * @return bool
+   *   TRUE if media entities exist, FALSE otherwise.
+   */
+  public function hasMediaEntities() {
+    return !empty($this->mediaEntities);
+  }
+
+  /**
    * Get the entity type manager.
    */
   protected function getEntityTypeManager() {
@@ -117,63 +163,31 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
    * {@inheritdoc}
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
-    // Retrieve selected media IDs from VBO tempstore.
-    $build_info = $form_state->getBuildInfo();
-    $view_id = $build_info['args'][0];
-    $display_id = $build_info['args'][1];
 
-    $temp_store_name = "views_bulk_operations_{$view_id}_{$display_id}";
     $user_id = (string) \Drupal::currentUser()->id();
 
-    $view_tempstore = \Drupal::service('tempstore.private')->get($temp_store_name);
-    $temp_store_data = $view_tempstore->get($user_id);
+    $media_ids = $form_state->get('selected_media_ids');
 
-    $exclude_mode = !empty($temp_store_data['exclude_mode']);
-    if (!$exclude_mode) {
-      if ($temp_store_data && isset($temp_store_data['list'])) {
-        $media_ids = array_map(function ($item) {
-          return is_array($item) ? $item[0] : $item;
-        }, $temp_store_data['list']);
-
-        if (!empty($media_ids)) {
-          // Load the LATEST revision of each media to get current field values.
-          $media_storage = \Drupal::entityTypeManager()->getStorage('media');
-          $this->mediaEntities = [];
-          foreach ($media_ids as $media_id) {
-            $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
-            if ($latest_revision_id) {
-              $this->mediaEntities[$media_id] = $media_storage->loadRevision($latest_revision_id);
-            }
-          }
+    if (!empty($media_ids)) {
+      // Load the LATEST revision of each media to get current field values.
+      $media_storage = \Drupal::entityTypeManager()->getStorage('media');
+      $this->mediaEntities = [];
+      foreach ($media_ids as $media_id) {
+        $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
+        if ($latest_revision_id) {
+          $this->mediaEntities[$media_id] = $media_storage->loadRevision($latest_revision_id);
         }
       }
     }
     else {
-      // Case of exclude mode, media list must be get from the view.
-      // Pay attention to have batch: true in VBO settings.
-      /** @var \Drupal\views\ViewExecutable $view */
-      $view = Views::getView($view_id);
-      $view->setDisplay($display_id);
-
-      // ⚠️ important : appliquer les exposed filters
-      if (!empty($temp_store_data['exposed_input'])) {
-        $view->setExposedInput($temp_store_data['exposed_input']);
-      }
-
-      $view->execute();
-
-      $media_storage = \Drupal::entityTypeManager()->getStorage('media');
-      $this->mediaEntities = [];
-
-      foreach ($view->result as $row) {
-        if (!empty($row->_entity)) {
-          $media_id = $row->_entity->id();
-          $latest_revision_id = $media_storage->getLatestRevisionId($media_id);
-          if ($latest_revision_id) {
-            $this->mediaEntities[$media_id] = $media_storage->loadRevision($latest_revision_id);
-          }
-        }
-      }
+      // No media IDs provided - return early with a message.
+      $form['#type'] = 'container';
+      $form['message'] = [
+        '#markup' => '<div class="messages messages--error">' .
+        $this->t('No media selected. Please select media before opening this dialog.') .
+        '</div>',
+      ];
+      return $form;
     }
 
     $form['#tree'] = TRUE;
@@ -201,7 +215,7 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
       '#description' => $this->t('Select an existing album (node) with media fields to add the selected media to.'),
       '#options' => $album_options,
       '#required' => TRUE,
-      '#default_value' => $this->configuration['album_id'] ?? '',
+      '#default_value' => '',
       '#empty_option' => $this->t('- Select an album -'),
       '#ajax' => [
         'callback' => [$this, 'ajaxUpdateAlbumFields'],

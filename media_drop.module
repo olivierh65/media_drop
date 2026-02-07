@@ -54,6 +54,7 @@ function media_drop_theme($existing, $type, $theme, $path) {
       'view' => [],
       'rows' => [],
       'options' => [],
+
       'grouped_fields' => [],
       'fields_entity_types' => [],
       ],
