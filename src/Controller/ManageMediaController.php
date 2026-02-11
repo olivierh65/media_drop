@@ -14,6 +14,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\Form\FormBuilderInterface;
 
 /**
  * Controller for media management page.
@@ -65,6 +66,13 @@ class ManageMediaController extends ControllerBase {
   protected $fileSystem;
 
   /**
+   * The media action service.
+   *
+   * @var \Drupal\media_album_light_table_style\Service\MediaActionService
+   */
+  protected $mediaActionService;
+
+  /**
    * Constructs a ManageMediaController object.
    */
   public function __construct(
@@ -74,6 +82,8 @@ class ManageMediaController extends ControllerBase {
     ModuleExtensionList $extension_list_module,
     DirectoryService $taxonomy_service,
     FileSystemInterface $file_system,
+    FormBuilderInterface $form_builder,
+    $media_action_service,
   ) {
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
@@ -81,6 +91,8 @@ class ManageMediaController extends ControllerBase {
     $this->extensionListModule = $extension_list_module;
     $this->taxonomyService = $taxonomy_service;
     $this->fileSystem = $file_system;
+    $this->formBuilder = $form_builder;
+    $this->mediaActionService = $media_action_service;
   }
 
   /**
@@ -93,7 +105,9 @@ class ManageMediaController extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('extension.list.module'),
       $container->get('media_drop.taxonomy_service'),
-      $container->get('file_system')
+      $container->get('file_system'),
+      $container->get('form_builder'),
+      $container->get('media_album_light_table_style.media_action')
     );
   }
 
@@ -222,8 +236,21 @@ class ManageMediaController extends ControllerBase {
     // Filter out media without files to avoid showing broken references.
     $this->filterMediaWithoutFiles($view_executable);
 
-    $build = $view_executable->buildRenderable('page_1', []);
+    $view_build = $view_executable->buildRenderable('page_1', []);
+
+    // Build and render the form.
+    $form = $this->formBuilder()->getForm(
+      'Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm',
+      1,
+      $this->mediaActionService->getAvailableActions(),
+      TRUE,
+    );
     $build['#attached']['library'][] = 'media_album_av_common/dragula';
+
+    $build = [
+      'form' => $form,
+      'view' => $view_build,
+    ];
     // $build['#attached']['library'][] = 'media_drop/admin_grid';
     return $build;
   }
