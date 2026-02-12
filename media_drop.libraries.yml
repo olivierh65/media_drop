@@ -25,20 +25,18 @@ admin_grid:
   version: 1.x
   css:
     theme:
-      css/media-drop-admin-grid.css: {}
-      css/media-drop-manage-image.css: {}
+      # css/media-drop-admin-grid.css: {}
+      # css/media-drop-manage-image.css: {}
   js:
-    js/media-drop-multi-select.js: {}
-    js/fix_vbo_counter.js: {}
-    js/media-drop-manage-image.js: {}
+    # js/media-drop-multi-select.js: {}
+    # js/fix_vbo_counter.js: {}
+    # js/media-drop-manage-image.js: {}
   dependencies:
     - core/drupal
     - core/drupalSettings
     - core/once
-    - views_bulk_operations/vbo
     - core/jquery
-    - media_album_av_common/dragula
-    - media_album_av_common/draggable-flexgrid
+
 
 media-info:
   version: 1.x
@@ -49,7 +47,7 @@ media-info:
 media-album-editor-widget:
   version: 1.x
   js:
-    js/media-album-editor-widget.js: {}
+    # js/media-album-editor-widget.js: {}
   dependencies:
     - core/jquery
     - core/drupal

@@ -10,4 +10,5 @@ dependencies:
   - drupal:views
   - drupal:taxonomy
   - media_album_av_common
+  - media_album_light_table_style
 configure: media_drop.admin_settings

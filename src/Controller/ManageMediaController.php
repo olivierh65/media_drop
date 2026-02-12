@@ -238,21 +238,7 @@ class ManageMediaController extends ControllerBase {
 
     $view_build = $view_executable->buildRenderable('page_1', []);
 
-    // Build and render the form.
-    $form = $this->formBuilder()->getForm(
-      'Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm',
-      1,
-      $this->mediaActionService->getAvailableActions(),
-      TRUE,
-    );
-    $build['#attached']['library'][] = 'media_album_av_common/dragula';
-
-    $build = [
-      'form' => $form,
-      'view' => $view_build,
-    ];
-    // $build['#attached']['library'][] = 'media_drop/admin_grid';
-    return $build;
+    return $view_build;
   }
 
   /**
