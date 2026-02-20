@@ -12,6 +12,10 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\filefield_paths\Hook\Tokens;
 use Drupal\filefield_paths\Hook\File;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\ViewExecutable;
+use Drupal\views\Plugin\views\query\QueryPluginBase;
+use Drupal\taxonomy\Entity\Term;
 
 
 /**
@@ -86,6 +90,7 @@ function media_drop_theme_suggestions_media_drop_draggable_flexgrid_with_groups_
  * Implements hook_views_data().
  */
 function media_drop_views_data() {
+
   $data['views']['media_drop_media_info'] = [
     'title' => t('Media Details'),
     'help' => t('A custom field that displays filtered media information for each media.'),
@@ -94,16 +99,67 @@ function media_drop_views_data() {
     ],
   ];
 
+   // On attache le filtre à la table media_field_data
+  // car c’est elle qui contient le champ directory.
+  /* $data['media_field_data']['include_children'] = [
+    'title' => t('Inclure les sous-répertoires'),
+    'help' => t('Inclure les médias contenus dans les sous-répertoires.'),
+    'filter' => [
+      'id' => 'media_directory_include_children',
+    ],
+  ]; */
+
+  $data['media_field_data']['directory_with_children'] = [
+    'title'  => t('Répertoire (avec sous-répertoires)'),
+    'help'   => t('Filtre par répertoire, avec option d\'inclusion des sous-répertoires.'),
+    'filter' => [
+      'id'    => 'media_directory_filter',
+      'field' => 'directory',
+    ],
+    'argument' => [
+      'id'    => 'media_directory_argument',
+      'field' => 'directory',
+      'title' => t('Répertoire (argument contextuel)'),
+      'help'  => t('Filtre contextuel par répertoire. Format : TID ou TID:1 pour inclure les sous-répertoires.'),
+    ],
+  ];
+$data['views']['include_children'] = [
+  'title'  => t('Inclure les sous-répertoires'),
+  'help'   => t('Inclure ou non les médias des sous-répertoires.'),
+  'filter' => [
+    'id' => 'include_children_filter',
+  ],
+];
+
   return $data;
 }
 
 /**
  * Implements hook_preprocess_views_view().
  */
-function media_drop_preprocess_views_view(&$variables) {
+function __media_drop_preprocess_views_view(&$variables) {
   if ($variables['view']->id() === 'media_drop_manage') {
-    // $variables['#attached']['library'][] = 'media_drop/admin_grid';
+    $variables['#attached']['library'][] = 'media_drop/media-drop';
     // $variables['#attached']['library'][] = 'media_drop/media-info';
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function media_drop_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  // Cibler le formulaire de filtre Views exposé de la vue media_drop_manage
+  if (str_starts_with($form_id, 'views_exposed_form') &&
+      isset($form['#id']) &&
+      str_contains($form['#id'], 'media-drop-manage')) {
+
+    // Ajouter une classe au wrapper du filtre include_children
+    if (isset($form['include_children'])) {
+      $form['include_children']['#wrapper_attributes']['class'][] = 'form-item--include-children';
+
+      // Attacher la bibliothèque CSS
+      $form['#attached']['library'][] = 'media_drop/media-drop';
+    }
   }
 }
 
@@ -138,17 +194,6 @@ function media_drop_mail($key, &$message, $params) {
   }
 }
 
-function media_drop_form_alter(
-  array &$form,
-  \Drupal\Core\Form\FormStateInterface $form_state,
-  $form_id
-) {
-  if ($form_id === 'views_form_media_drop_manage_page_1') {
-
-    // Ajouter un submit custom AVANT VBO
-    $form['#submit'][] = 'media_drop_capture_order_submit';
-  }
-}
 
 function media_drop_capture_order_submit(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
   $order = $form_state->getUserInput()['vbo_media_drop_order'];
@@ -160,3 +205,4 @@ $tempstore = $tempstore_factory->get('media_drop');
 // Stocker un tableau
 $tempstore->set('ordered_media_ids', $order);
 }
+

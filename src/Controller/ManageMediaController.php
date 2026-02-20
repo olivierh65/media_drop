@@ -15,6 +15,8 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Form\FormBuilderInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Drupal\media_album_av_common\Traits\AlbumTrait;
 
 /**
  * Controller for media management page.
@@ -22,6 +24,7 @@ use Drupal\Core\Form\FormBuilderInterface;
 class ManageMediaController extends ControllerBase {
 
   use MediaFieldFilterTrait;
+  use AlbumTrait;
 
   /**
    * The config factory.
@@ -121,25 +124,10 @@ class ManageMediaController extends ControllerBase {
   /**
    * Media management page.
    */
-  public function managePage() {
+  public function managePage(Request $request, $id = NULL) {
     // Check if user has permission to manage media.
     if (!$this->currentUser()->hasPermission('manage media')) {
       throw new AccessDeniedHttpException('You do not have permission to manage media.');
-    }
-
-    // Check if VBO is installed and enabled.
-    $vbo_installed = $this->moduleHandler->moduleExists('views_bulk_operations');
-
-    if (!$vbo_installed) {
-      $build['warning'] = [
-        '#markup' => '<div class="messages messages--warning">' .
-        $this->t('The <a href="@url" target="_blank">Views Bulk Operations</a> module must be installed and enabled to use this functionality.', [
-          '@url' => 'https://www.drupal.org/project/views_bulk_operations',
-        ]) . '<br><br>' .
-        $this->t('Installation: <code>composer require drupal/views_bulk_operations && drush en views_bulk_operations -y && drush cr</code>') .
-        '</div>',
-      ];
-      return $build;
     }
 
     // Check if the view exists.
@@ -218,27 +206,35 @@ class ManageMediaController extends ControllerBase {
       return $build;
     }
 
-    // Update vocabulary ID for directory filter if media_directories is enabled.
-    $vocabulary_id = $this->taxonomyService->getMediaDirectoriesVocabulary();
-    if ($vocabulary_id) {
-      $display_handler = $view_executable->getDisplay('default');
-      if ($display_handler) {
-        $current_filters = $display_handler->getOption('filters') ?: [];
-        $current_filters['directory']['vid'] = $vocabulary_id;
-        $display_handler->setOption('filters', $current_filters);
-      }
-    }
-
     $view_executable->setDisplay('page_1');
+
+    if ($id !== NULL) {
+      // $view_executable->setArguments([$id]);
+      // Parser l'argument pour récupérer tid et include_children.
+      $parts = explode(':', $id, 2);
+      $tid = (int) $parts[0];
+      $include_children = isset($parts[1]) ? (int) (bool) $parts[1] : 0;
+
+      // Injecter dans l'exposed input pour que les filtres exposés
+      // soient initialisés avec les bonnes valeurs.
+      $view_executable->setExposedInput([
+        'directory_with_children' => (string) $tid,
+        'include_children' => (string) $include_children,
+      ]);
+
+    }
     $view_executable->preExecute();
     $view_executable->execute();
 
-    // Filter out media without files to avoid showing broken references.
+    /**
+   * Filter out media without files to avoid showing broken references.
+   */
     $this->filterMediaWithoutFiles($view_executable);
 
     $view_build = $view_executable->buildRenderable('page_1', []);
 
     return $view_build;
+
   }
 
   /**

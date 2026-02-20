@@ -64,12 +64,14 @@ media_drop.ajax_check_filefield_paths:
   methods: [POST]
 
 media_drop.manage_media:
-  path: '/admin/config/media/media-drop/manage'
+  path: '/admin/config/media/media-drop/manage_init/{id}'
   defaults:
     _controller: '\Drupal\media_drop\Controller\ManageMediaController::managePage'
     _title: 'Manage media'
+    id: ~
   requirements:
     _permission: 'administer media drop'
+
 
 media_drop.create_manage_view:
   path: '/admin/config/media/media-drop/create-manage-view'

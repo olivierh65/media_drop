@@ -10,6 +10,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\media_album_av_common\Service\DirectoryService;
 use Drupal\media_album_av_common\Traits\FieldWidgetBuilderTrait;
+use Drupal\media_album_av_common\Traits\AlbumTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -17,6 +18,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 abstract class BaseAlbumAction extends ConfigurableActionBase implements ContainerFactoryPluginInterface {
   use FieldWidgetBuilderTrait;
+  use AlbumTrait;
 
 
   /**
@@ -160,9 +162,17 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
   }
 
   /**
-   * {@inheritdoc}
+   *
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
+    // This method is meant to be overridden by child classes.
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function ___buildConfigurationForm(array $form, FormStateInterface $form_state) {
 
     $user_id = (string) \Drupal::currentUser()->id();
 
@@ -254,7 +264,7 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
 
       if ($this->albumNode) {
         // Build step_2 inside wrapper.
-        $form['step_2_wrapper']['step_2'] = $this->buildAlbumConfigurationForm([]);
+        $form['step_2_wrapper']['step_2'] = $this->buildAlbumConfigurationForm($form_state, []);
       }
     }
     else {
@@ -1455,25 +1465,6 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
   }
 
   /**
-   * Build field widget based on field config.
-   *
-   * @param object $field_config
-   *   The field config.
-   * @param mixed $default_value
-   *   The default value for the field.
-   *
-   * @return array
-   *   Form element for the field.
-   *
-   * @deprecated Use the FieldWidgetBuilderTrait::buildFieldWidget() instead.
-   */
-  protected function buildFieldWidget($field_config, $default_value = NULL) {
-    // This method is now provided by FieldWidgetBuilderTrait.
-    // Calling parent implementation from trait.
-    return parent::buildFieldWidget($field_config, $default_value);
-  }
-
-  /**
    * Get media metadata fields (title and alt) available in the media types.
    *
    * Returns an array of field groups, each with:
@@ -1590,13 +1581,15 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
   /**
    * Build the album configuration form section.
    *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
    * @param array $wrapper
    *   Unused, kept for compatibility.
    *
    * @return array
    *   The step_2 element ready to add to main form.
    */
-  protected function buildAlbumConfigurationForm(array $wrapper) {
+  protected function ___buildAlbumConfigurationForm(FormStateInterface $form_state, array $wrapper) {
     if (!$this->albumNode) {
       return [
         '#type' => 'container',

@@ -52,3 +52,9 @@ media-album-editor-widget:
     - core/jquery
     - core/drupal
     - core/drupalSettings
+
+media-drop:
+  version: 1.x
+  css:
+    theme:
+      css/media-drop-view-filter.css: {}

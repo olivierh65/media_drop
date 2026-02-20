@@ -4,6 +4,7 @@ namespace Drupal\media_drop\Plugin\Action;
 
 use Drupal\media_album_av_common\Service\DirectoryService;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Adds media entities to an album node WITHOUT moving the media files.
@@ -28,6 +29,14 @@ class AddToAlbumAction extends BaseAlbumAction {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $taxonomy_service);
 
     $this->move = FALSE;
+  }
+
+  /**
+   *
+   */
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
+    // This method is meant to be overridden by child classes.
+    return $form;
   }
 
   /**

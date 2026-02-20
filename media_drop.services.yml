@@ -8,3 +8,4 @@ services:
       - '@entity_type.manager'
       - '@plugin.manager.mail'
       - '@language_manager'
+
