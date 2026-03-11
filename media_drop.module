@@ -206,3 +206,21 @@ $tempstore = $tempstore_factory->get('media_drop');
 $tempstore->set('ordered_media_ids', $order);
 }
 
+
+function media_drop_views_pre_render(\Drupal\views\ViewExecutable $view) {
+  if ($view->id() !== 'media_drop_manage') {
+    return;
+  }
+
+  // 1. Nettoyage des fichiers inexistants
+  // Vous pouvez appeler une méthode statique ou un service ici
+  $cleaner = new class { use \Drupal\media_drop\Traits\MediaViewsCleanupTrait; public function clean($v) { $this->filterMediaResults($v); }};
+  $cleaner->clean($view);
+
+  foreach ($view->filter as $filter) {
+    if ($filter->getPluginId() === 'media_directory_filter') {
+      $view->directoryGrouping = $filter->getGroupingConfig();
+      break;
+    }
+  }
+}

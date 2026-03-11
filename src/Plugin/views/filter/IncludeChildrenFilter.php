@@ -18,11 +18,11 @@ class IncludeChildrenFilter extends FilterPluginBase {
   protected function defineOptions() {
     $options = parent::defineOptions();
     $options['value']['default'] = '1';
+    $options['display_sub']['default'] = TRUE;
     return $options;
   }
 
   /**
-   *
    */
   public function adminSummary() {
     return $this->t('Inclure les sous-répertoires');
@@ -43,11 +43,24 @@ class IncludeChildrenFilter extends FilterPluginBase {
         '0' => $this->t('Non'),
       ],
       '#default_value' => $exposed[$identifier] ?? '0',
+      '#attributes'    => ['class' => ['include-children-filter']],
+    ];
+    $form['display_sub'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Afficher les sous-répertoires dans la vue'),
+      '#default_value' => TRUE,
+      '#states' => [
+        'visible' => [
+          ':input[name="include_children"]' => ['value' => '1'],
+        ],
+      ],
+      '#attributes' => ['class' => ['include-children-display-sub']],
+      '#prefix' => '<div class="include-children-display-sub-wrapper">',
+      '#suffix' => '</div>',
     ];
   }
 
   /**
-   *
    */
   public function validateExposed(&$form, FormStateInterface $form_state) {
     // Pas de validation bloquante.

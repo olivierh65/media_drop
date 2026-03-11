@@ -40,6 +40,7 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
     $no_entity = 0;
     $no_media = 0;
     $no_album = 0;
+    $moved_ids = [];
 
     foreach ($data['entities'] as $entity) {
       switch ($this->execute($data['album_id'], $entity)) {
@@ -48,6 +49,7 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
           break;
 
         case 'done':
+          $moved_ids[] = $entity->id();
           $done++;
           break;
 
@@ -78,20 +80,24 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
       return [
         'status' => 'success',
         'response' => $response,
+        'moved_ids' => $moved_ids,
       ];
     }
     elseif ($skipped > 0) {
       return [
         'status' => 'warning',
         'response' => $response,
+        'moved_ids' => $moved_ids,
       ];
     }
     else {
       return [
         'status' => 'error',
         'response' => $response,
+        'moved_ids' => $moved_ids,
       ];
     }
+
   }
 
   /**

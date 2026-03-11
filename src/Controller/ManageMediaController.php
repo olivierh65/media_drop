@@ -226,72 +226,10 @@ class ManageMediaController extends ControllerBase {
     $view_executable->preExecute();
     $view_executable->execute();
 
-    /**
-   * Filter out media without files to avoid showing broken references.
-   */
-    $this->filterMediaWithoutFiles($view_executable);
-
     $view_build = $view_executable->buildRenderable('page_1', []);
 
     return $view_build;
 
-  }
-
-  /**
-   * Filter out media entities that don't have files attached.
-   *
-   * This prevents displaying broken media references in the view.
-   * Don't delete media, just filter them out from the view results.
-   *
-   * @param \Drupal\views\ViewExecutable $view_executable
-   *   The view executable to filter.
-   */
-  protected function filterMediaWithoutFiles($view_executable) {
-    $mediaStorage = $this->entityTypeManager->getStorage('media');
-
-    $filtered_results = [];
-
-    foreach ($view_executable->result as $row) {
-      // Get the media entity from the row.
-      $media = $row->_entity ?? NULL;
-
-      if (!$media) {
-        continue;
-      }
-
-      try {
-        $source_field = $media->getSource()->getConfiguration()['source_field'];
-
-        // Check if media has the source field and it's not empty.
-        if (!$media->hasField($source_field) || $media->get($source_field)->isEmpty()) {
-          // Skip this media - no file attached.
-          continue;
-        }
-
-        // Check if file exists on disk.
-        $field_values = $media->get($source_field)->getValue();
-        if (!empty($field_values)) {
-          $file_entity = $media->get($source_field)->entity;
-          if ($file_entity) {
-            $file_uri = $file_entity->getFileUri();
-            $file_path = $this->fileSystem->realpath($file_uri);
-
-            if (file_exists($file_path)) {
-              // File exists, keep this result.
-              $filtered_results[] = $row;
-            }
-            // If file doesn't exist, skip it (don't add to filtered_results).
-          }
-        }
-      }
-      catch (\Exception $e) {
-        // On error, keep the result anyway.
-        $filtered_results[] = $row;
-      }
-    }
-
-    // Replace the results with filtered ones.
-    $view_executable->result = $filtered_results;
   }
 
   /**

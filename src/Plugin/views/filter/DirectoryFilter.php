@@ -251,4 +251,17 @@ class DirectoryFilter extends FilterPluginBase {
     return [$tid, $include_children];
   }
 
+  /**
+   * Retourne la configuration de grouping pour le style plugin.
+   */
+  public function getGroupingConfig(): array {
+    return [
+    [
+      'field'          => 'directory',
+      'rendered'       => FALSE,
+      'rendered_strip' => FALSE,
+    ],
+    ];
+  }
+
 }

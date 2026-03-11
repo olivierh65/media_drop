@@ -1,12 +1,12 @@
 
 /* Wrapper externe */
-.include-children-wrapper {
+.include-children-display-sub-wrapper {
   display: flex;
   justify-content: center;
 }
 
 /* Div interne Claro — colonne centrée */
-.include-children-wrapper .form-item {
+.include-children-display-sub-wrapper .form-item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -14,17 +14,69 @@
 }
 
 /* Label en premier (order: 1 = avant la checkbox) */
-.include-children-wrapper .form-item__label {
+.include-children-display-sub-wrapper .form-item__label.option {
   order: 1;
   margin: 0;
   text-align: center;
   margin-block: calc(var(--space-xs) / 2);
+  font-weight: bold;
 }
 
 /* Checkbox en second */
-.include-children-wrapper .form-checkbox {
+.include-children-display-sub-wrapper .form-checkbox {
   order: 2;
   height: 1.5rem;
   width: 1.5rem;
   border-width: medium;
+}
+
+/* Limiter la largeur du label pour forcer le retour à la ligne */
+.include-children-display-sub-wrapper .form-item__label {
+  max-width: 180px;           /* Ajustez cette valeur selon la longueur de votre texte */
+  white-space: normal;        /* Assure que le texte peut se couper (valeur par défaut) */
+  word-wrap: break-word;      /* Coupe les mots trop longs si nécessaire */
+}
+
+/* (Optionnel) Réduire les marges verticales pour gagner un peu de place */
+.include-children-display-sub-wrapper .form-item__label {
+  margin-block: 0;            /* Supprime les marges existantes (calc(var(--space-xs) / 2)) */
+}
+
+/* (Optionnel) Ajuster l'espace entre le texte et la checkbox */
+.include-children-display-sub-wrapper .form-item {
+  gap: 2px;                   /* Réduit l'écart vertical si vous voulez moins d'espace */
+}
+
+/* Conteneur du select */
+.form-item--include-children {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;                /* espace vertical entre label et select (ajustable) */
+  /* Supprimez les marges/padding hérités si besoin */
+  margin: 0;
+  padding: 0;
+}
+
+/* Label du select */
+.form-item--include-children .form-item__label {
+  order: 1;                /* optionnel : garantit que le label reste en haut */
+  margin: 0;               /* supprime les marges par défaut */
+  text-align: center;
+  max-width: 180px;        /* force le texte à se couper sur plusieurs lignes */
+  white-space: normal;     /* autorise le retour à la ligne */
+  word-wrap: break-word;   /* coupe les mots trop longs */
+  line-height: 1.2;        /* peut réduire l’espacement entre lignes */
+  /* Supprimez les marges verticales héritées du thème */
+  margin-block: 0;
+}
+
+/* Le select lui-même */
+.form-item--include-children .include-children-filter {
+  order: 2;                /* le select passe sous le label */
+  width: auto;             /* ou une largeur fixe, par ex. 150px */
+  min-width: 120px;        /* largeur minimale pour rester utilisable */
+  height: 1.5rem;
+  min-height: 2.2rem;
+  padding-block-start: 4px;
 }
