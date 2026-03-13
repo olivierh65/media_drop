@@ -21,23 +21,6 @@ upload_interface:
     - core/drupal.announce
     - media_drop/dropzone
 
-admin_grid:
-  version: 1.x
-  css:
-    theme:
-      # css/media-drop-admin-grid.css: {}
-      # css/media-drop-manage-image.css: {}
-  js:
-    # js/media-drop-multi-select.js: {}
-    # js/fix_vbo_counter.js: {}
-    # js/media-drop-manage-image.js: {}
-  dependencies:
-    - core/drupal
-    - core/drupalSettings
-    - core/once
-    - core/jquery
-
-
 media-info:
   version: 1.x
   css:

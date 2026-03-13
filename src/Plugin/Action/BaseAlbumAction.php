@@ -1335,7 +1335,8 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
 
       // Types of fields to exclude (main media content).
       $excluded_field_types = ['image', 'file', 'video_file', 'audio_file', 'document'];
-
+      // Specific field names to exclude (e.g. event group that is deducted from event media).
+      $excluded_field_names = ['field_media_album_av_event_group'];
       // Load fields from ALL acceptable media bundles and group by designation.
       foreach ($media_bundles_to_load as $media_bundle) {
         $query = $this->entityTypeManager->getStorage('field_config')
@@ -1356,6 +1357,7 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
             // Only include custom fields that are not excluded types or EXIF fields.
             if (!$is_base_field &&
             !in_array($field_type, $excluded_field_types) &&
+            !in_array($field_config->getName(), $excluded_field_names) &&
             !$this->isExifField($field_config->getName())) {
 
               // Get the designation for this field.
@@ -1579,192 +1581,6 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
   }
 
   /**
-   * Build the album configuration form section.
-   *
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The form state.
-   * @param array $wrapper
-   *   Unused, kept for compatibility.
-   *
-   * @return array
-   *   The step_2 element ready to add to main form.
-   */
-  protected function ___buildAlbumConfigurationForm(FormStateInterface $form_state, array $wrapper) {
-    if (!$this->albumNode) {
-      return [
-        '#type' => 'container',
-        '#access' => FALSE,
-        '#tree' => TRUE,
-        '#weight' => 10,
-      ];
-    }
-
-    /*  $step_2 = [
-    '#type' => 'details',
-    '#title' => $this->t('Step 2: Configure album Fields'),
-    '#open' => TRUE,
-    '#tree' => TRUE,
-    '#attributes' => ['id' => 'album-fields-wrapper'],
-    '#access' => TRUE,
-    ]; */
-
-    // Initialize step_2 array.
-    $step_2 = [];
-
-    $step_2['info'] = [
-      '#markup' => '<div class="messages messages--status">' .
-      $this->t('Album: <strong>@album_title</strong>', ['@album_title' => $this->albumNode->label()]) .
-      '</div>',
-    ];
-
-    // Hidden input to signal that step_2 is fully rendered (for form states).
-    // This input only exists when step_2 is created, so form states can use it to detect
-    // when step_2 is ready.
-    $step_2['step_2_ready_marker'] = [
-      '#type' => 'hidden',
-      '#value' => '1',
-    ];
-
-    // Show existing media in album and which ones will be added.
-    $existing_media = $this->getMediaIdsInAlbum($this->albumNode);
-    $new_media_count = 0;
-    $duplicate_count = 0;
-    $new_media_list = '';
-    $duplicate_list = '';
-
-    foreach ($this->mediaEntities as $media_id => $media) {
-      if (isset($existing_media[$media_id])) {
-        $duplicate_count++;
-        $duplicate_list .= '<li>' . $media->label() . ' (ID: ' . $media_id . ')</li>';
-      }
-      else {
-        $new_media_count++;
-        $new_media_list .= '<li>' . $media->label() . ' (ID: ' . $media_id . ')</li>';
-      }
-    }
-
-    // Show summary of media processing status.
-    $not_processed_count = $duplicate_count + count($this->getIncompatibleMedia($this->albumNode));
-    if ($not_processed_count > 0) {
-      $step_2['summary_warning'] = [
-        '#markup' => '<div class="messages messages--warning">' .
-        $this->t('<strong>⚠️ @count media will NOT be processed</strong> (expand the sections below to see details)', ['@count' => $not_processed_count]) .
-        '</div>',
-      ];
-    }
-
-    // Show media already in album (in collapsible details).
-    if (!empty($existing_media)) {
-      $existing_list = '';
-      foreach ($existing_media as $media_id => $label) {
-        $existing_list .= '<li>' . $label . ' (ID: ' . $media_id . ')</li>';
-      }
-      $step_2['existing_media'] = [
-        '#type' => 'details',
-        '#title' => $this->t('Media already in album (@count)', ['@count' => count($existing_media)]),
-        '#open' => FALSE,
-        '#markup' => '<ul>' . $existing_list . '</ul>',
-      ];
-    }
-
-    // Show duplicates (media already in album that were selected).
-    if ($duplicate_count > 0) {
-      $step_2['duplicates'] = [
-        '#type' => 'details',
-        '#title' => $this->t('Selected media already in album - will be skipped (@count)', ['@count' => $duplicate_count]),
-        '#open' => FALSE,
-        '#markup' => '<ul>' . $duplicate_list . '</ul>',
-      ];
-    }
-
-    // Show media that will be added (in collapsible details).
-    if ($new_media_count > 0) {
-      $step_2['new_media'] = [
-        '#type' => 'details',
-        '#title' => $this->t('✓ Media to be added to the album (@count)', ['@count' => $new_media_count]),
-        '#open' => TRUE,
-        '#markup' => '<ul>' . $new_media_list . '</ul>',
-      ];
-    }
-
-    // Show media compatibility info (in collapsible details).
-    $incompatible_media = $this->getIncompatibleMedia($this->albumNode);
-    if (!empty($incompatible_media)) {
-      $incompatible_list = '';
-      foreach ($incompatible_media as $media) {
-        $incompatible_list .= '<li>' . $media->label() . ' (' . $media->bundle() . ')</li>';
-      }
-      $step_2['incompatible_warning'] = [
-        '#type' => 'details',
-        '#title' => $this->t('Incompatible media - will NOT be imported (@count)', ['@count' => count($incompatible_media)]),
-        '#open' => FALSE,
-        '#markup' => '<ul>' . $incompatible_list . '</ul>',
-      ];
-    }
-
-    if ($this->move) {
-      // Directory selection (if media_directories is enabled).
-      if (\Drupal::moduleHandler()->moduleExists('media_directories')) {
-        $directory_element = $this->buildDirectorySelector();
-        if ($directory_element) {
-          $step_2['directory_tid'] = $directory_element;
-        }
-      }
-    }
-    // Show album editable fields - grouped by designation.
-    $grouped_album_fields = $this->getAlbumEditableFieldsGrouped($this->albumNode);
-
-    if (!empty($grouped_album_fields)) {
-      $step_2['album_fields'] = [
-        '#type' => 'details',
-        '#title' => $this->t('Media Type Fields (from Media Field)'),
-        '#open' => TRUE,
-        '#tree' => TRUE,
-      ];
-
-      foreach ($grouped_album_fields as $designation_key => $field_group) {
-        $field_config = $field_group['field_config'];
-        $field_label = $field_group['designation'];
-        $field_names = $field_group['field_names'];
-
-        $step_2['album_fields'][$designation_key] = [
-          '#type' => 'details',
-          '#title' => $field_label,
-          '#open' => FALSE,
-        ];
-
-        if (($this->albumNode->hasField($field_group['field_names'][0])) &&
-          (!empty($this->albumNode->get($field_group['field_names'][0])->first()))) {
-          $default_from_node[0]['target_id'] = $this->albumNode->get($field_group['field_names'][0])->first()->get('target_id')->getValue();
-        }
-        else {
-          $default_from_node = NULL;
-        }
-        $default_value = $this->configuration['album_field_values'][$designation_key] ??
-          $default_from_node ?? NULL;
-
-        $step_2['album_fields'][$designation_key]['value'] = $this->buildFieldWidget(
-        $field_config,
-        $default_value
-        );
-
-        // Store the field names that belong to this designation for later processing.
-        $step_2['album_fields'][$designation_key]['field_names'] = [
-          '#type' => 'value',
-          '#value' => $field_names,
-        ];
-
-        $field_names_display = implode(', ', $field_names);
-        $step_2['album_fields'][$designation_key]['description'] = [
-          '#markup' => '<p><em>' . $this->t('This value will be applied to all selected media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
-        ];
-      }
-    }
-
-    return $step_2;
-  }
-
-  /**
    * AJAX callback to update album fields when album selection changes.
    *
    * @param array $form
@@ -1822,13 +1638,13 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
     $this->configuration['directory_tid'] = $directory_tid;
 
     // Store album field values.
-    if (isset($values['step_2_wrapper']['step_2']['album_fields'])) {
+    if (isset($values['step_2_wrapper']['step_2']['grouped_media_fields'])) {
       if (!isset($this->configuration['album_field_values'])) {
         $this->configuration['album_field_values'] = [];
       }
       $this->configuration['album_field_values'] = array_merge(
       $this->configuration['album_field_values'],
-      $values['step_2_wrapper']['step_2']['album_fields']
+      $values['step_2_wrapper']['step_2']['grouped_media_fields']
       );
     }
 
@@ -1960,8 +1776,8 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
    */
   protected function applyFieldValuesToMedia($media) {
     // Apply album field values (grouped by designation).
-    if (isset($this->configuration['album_field_values'])) {
-      foreach ($this->configuration['album_field_values'] as $designation_key => $field_data) {
+    if (isset($this->configuration['grouped_media_fields'])) {
+      foreach ($this->configuration['grouped_media_fields'] as $designation_key => $field_data) {
         // Get the actual value and field names.
         $field_value = NULL;
         $field_names = [];
@@ -2113,6 +1929,21 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
               }
             }
           }
+        }
+      }
+    }
+
+    // Auto-populate event_group text field from the parent term of the event.
+    if ($media->hasField('field_media_album_av_event') && $media->hasField('field_media_album_av_event_group')) {
+      $event_field = $media->get('field_media_album_av_event');
+      if (!$event_field->isEmpty()) {
+        $event_tid = $event_field->target_id;
+        $parents = $this->entityTypeManager
+          ->getStorage('taxonomy_term')
+          ->loadParents($event_tid);
+        if (!empty($parents)) {
+          $parent_term = reset($parents);
+          $media->set('field_media_album_av_event_group', $parent_term->label());
         }
       }
     }

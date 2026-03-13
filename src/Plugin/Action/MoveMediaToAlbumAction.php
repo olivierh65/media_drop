@@ -215,7 +215,7 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
     }
 
     // Apply field values to media entity.
-    if (!empty($this->configuration['album_field_values'])) {
+    if (!empty($this->configuration['grouped_media_fields'])) {
       $this->applyFieldValuesToMedia($entity);
     }
 
@@ -508,22 +508,22 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
       }
     }
     // Show album editable fields - grouped by designation.
-    $grouped_album_fields = $this->getAlbumEditableFieldsGrouped($this->albumNode);
+    $grouped_media_fields = $this->getAlbumEditableFieldsGrouped($this->albumNode);
 
-    if (!empty($grouped_album_fields)) {
-      $step_2['album_fields'] = [
+    if (!empty($grouped_media_fields)) {
+      $step_2['grouped_media_fields'] = [
         '#type' => 'details',
         '#title' => $this->t('Media Type Fields (from Media Field)'),
         '#open' => TRUE,
         '#tree' => TRUE,
       ];
 
-      foreach ($grouped_album_fields as $designation_key => $field_group) {
+      foreach ($grouped_media_fields as $designation_key => $field_group) {
         $field_config = $field_group['field_config'];
         $field_label = $field_group['designation'];
         $field_names = $field_group['field_names'];
 
-        $step_2['album_fields'][$designation_key] = [
+        $step_2['grouped_media_fields'][$designation_key] = [
           '#type' => 'details',
           '#title' => $field_label,
           '#open' => FALSE,
@@ -539,19 +539,19 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
         $default_value = $this->configuration['album_field_values'][$designation_key] ??
           $default_from_node ?? NULL;
 
-        $step_2['album_fields'][$designation_key]['value'] = $this->buildFieldWidget(
+        $step_2['grouped_media_fields'][$designation_key]['value'] = $this->buildFieldWidget(
         $field_config,
         $default_value
         );
 
         // Store the field names that belong to this designation for later processing.
-        $step_2['album_fields'][$designation_key]['field_names'] = [
+        $step_2['grouped_media_fields'][$designation_key]['field_names'] = [
           '#type' => 'value',
           '#value' => $field_names,
         ];
 
         $field_names_display = implode(', ', $field_names);
-        $step_2['album_fields'][$designation_key]['description'] = [
+        $step_2['grouped_media_fields'][$designation_key]['description'] = [
           '#markup' => '<p><em>' . $this->t('This value will be applied to all selected media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
         ];
       }
@@ -639,13 +639,13 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
     $this->configuration['directory_tid'] = $directory_tid;
 
     // Store album field values.
-    if (isset($values['step_2_wrapper']['step_2']['album_fields'])) {
+    if (isset($values['step_2_wrapper']['step_2']['grouped_media_fields'])) {
       if (!isset($this->configuration['album_field_values'])) {
         $this->configuration['album_field_values'] = [];
       }
       $this->configuration['album_field_values'] = array_merge(
         $this->configuration['album_field_values'],
-        $values['step_2_wrapper']['step_2']['album_fields']
+        $values['step_2_wrapper']['step_2']['grouped_media_fields']
       );
     }
 

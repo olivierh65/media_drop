@@ -1294,7 +1294,7 @@ class UploadController extends ControllerBase {
       if (!$media) {
         // Media entity doesn't exist, remove from tracking.
         $this->logger->info('Media entity missing for upload ID: ' . $upload->id .
-         ' bundle: ' . $media->bundle() . ' name: ' . $media->label());
+         ' media ID: ' . $upload->media_id);
         $this->database->delete('media_drop_uploads')
           ->condition('id', $upload->id)
           ->execute();
