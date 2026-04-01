@@ -350,6 +350,14 @@ class BulkEditMediaAction extends ConfigurableActionBase implements ContainerFac
   /**
    * {@inheritdoc}
    */
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
+    // Let parent class handle validation.
+    return parent::validateConfigurationForm($form, $form_state);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function execute($entity = NULL) {
     if (!$entity) {
       return;

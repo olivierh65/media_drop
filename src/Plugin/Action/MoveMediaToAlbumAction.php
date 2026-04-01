@@ -536,7 +536,7 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
         else {
           $default_from_node = NULL;
         }
-        $default_value = $this->configuration['album_field_values'][$designation_key] ??
+        $default_value = $this->configuration['grouped_media_fields'][$designation_key] ??
           $default_from_node ?? NULL;
 
         $step_2['grouped_media_fields'][$designation_key]['value'] = $this->buildFieldWidget(
@@ -554,6 +554,24 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
         $step_2['grouped_media_fields'][$designation_key]['description'] = [
           '#markup' => '<p><em>' . $this->t('This value will be applied to all selected media (fields: @fields).', ['@fields' => $field_names_display]) . '</em></p>',
         ];
+
+        $widget = $this->buildFieldWidget($field_config, $default_value);
+
+        // Ajouter #autocreate uniquement sur les taxonomies "libres".
+        if ($field_config->getType() === 'entity_reference') {
+          $target_type = $field_config->getSetting('target_type');
+          if ($target_type === 'taxonomy_term') {
+            $handler_settings = $field_config->getSetting('handler_settings') ?? [];
+            $target_bundles = $handler_settings['target_bundles'] ?? [];
+            $vocabulary_id = !empty($target_bundles) ? reset(array_keys($target_bundles)) : NULL;
+
+            if ($vocabulary_id && $this->isAutocreateVocabulary($vocabulary_id, $field_config->getName())) {
+              $widget['#autocreate'] = ['bundle' => $vocabulary_id];
+            }
+          }
+        }
+
+        $step_2['grouped_media_fields'][$designation_key]['value'] = $widget;
       }
     }
 
@@ -638,14 +656,18 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
     }
     $this->configuration['directory_tid'] = $directory_tid;
 
-    // Store album field values.
+    // Store album field values and create missing autocreate terms.
     if (isset($values['step_2_wrapper']['step_2']['grouped_media_fields'])) {
-      if (!isset($this->configuration['album_field_values'])) {
-        $this->configuration['album_field_values'] = [];
+      if (!isset($this->configuration['grouped_media_fields'])) {
+        $this->configuration['grouped_media_fields'] = [];
       }
-      $this->configuration['album_field_values'] = array_merge(
-        $this->configuration['album_field_values'],
-        $values['step_2_wrapper']['step_2']['grouped_media_fields']
+
+      // Process grouped media fields and create autocreate terms if needed.
+      $processed_fields = $this->processAutocreateTerms($values['step_2_wrapper']['step_2']['grouped_media_fields']);
+
+      $this->configuration['grouped_media_fields'] = array_merge(
+        $this->configuration['grouped_media_fields'],
+        $processed_fields
       );
     }
 
@@ -1082,6 +1104,34 @@ class MoveMediaToAlbumAction extends BaseAlbumAction {
     ]);
 
     return $directories;
+  }
+
+  /**
+   *
+   */
+  protected function isAutocreateVocabulary(string $vocabulary_id, string $field_name): bool {
+    $config = \Drupal::config('media_album_av.settings');
+
+    // Parcourir tous les media types configurés.
+    $media_types = $this->entityTypeManager
+      ->getStorage('media_type')
+      ->loadMultiple();
+
+    foreach ($media_types as $media_type_id => $media_type) {
+      $category_config = $config->get('category_fields.' . $media_type_id);
+      if (!$category_config) {
+        continue;
+      }
+
+      // Si ce field_name correspond au champ catégorie configuré
+      // pour ce media type → retourner le flag autocreate.
+      if (($category_config['field_name'] ?? '') === $field_name) {
+        return (bool) ($category_config['autocreate'] ?? FALSE);
+      }
+    }
+
+    // Par défaut : pas d'autocreate.
+    return FALSE;
   }
 
 }

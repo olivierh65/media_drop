@@ -2,6 +2,7 @@
 
 namespace Drupal\media_drop\Plugin\Action;
 
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Action\ConfigurableActionBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -11,6 +12,7 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\media_album_av_common\Service\DirectoryService;
 use Drupal\media_album_av_common\Traits\FieldWidgetBuilderTrait;
 use Drupal\media_album_av_common\Traits\AlbumTrait;
+use Drupal\media_album_av_common\Traits\TaxonomyTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -19,6 +21,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 abstract class BaseAlbumAction extends ConfigurableActionBase implements ContainerFactoryPluginInterface {
   use FieldWidgetBuilderTrait;
   use AlbumTrait;
+  use TaxonomyTrait;
 
 
   /**
@@ -1603,6 +1606,13 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
    * {@inheritdoc}
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    parent::submitConfigurationForm($form, $form_state);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     $values = $form_state->getValues();
 
     // DEBUG: Log the structure of $values to see where directory_tid is.
@@ -1639,12 +1649,15 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
 
     // Store album field values.
     if (isset($values['step_2_wrapper']['step_2']['grouped_media_fields'])) {
-      if (!isset($this->configuration['album_field_values'])) {
-        $this->configuration['album_field_values'] = [];
+      if (!isset($this->configuration['grouped_media_fields'])) {
+        $this->configuration['grouped_media_fields'] = [];
       }
-      $this->configuration['album_field_values'] = array_merge(
-      $this->configuration['album_field_values'],
-      $values['step_2_wrapper']['step_2']['grouped_media_fields']
+      // Process autocreate terms before storing.
+      $grouped_media_fields = $values['step_2_wrapper']['step_2']['grouped_media_fields'];
+      $grouped_media_fields = $this->processAutocreateTerms($grouped_media_fields);
+      $this->configuration['grouped_media_fields'] = array_merge(
+      $this->configuration['grouped_media_fields'],
+      $grouped_media_fields
       );
     }
 
@@ -1727,7 +1740,7 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
    * @return int|null
    *   The term ID if found or created, NULL otherwise.
    */
-  protected function findOrCreateTaxonomyTerm($term_label, $vocabulary_id) {
+  protected function ___findOrCreateTaxonomyTerm($term_label, $vocabulary_id) {
     if (empty($term_label) || empty($vocabulary_id)) {
       return NULL;
     }
@@ -1829,7 +1842,7 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
                   // - term_id|term_label (autocomplete format)
                   // - Just term_id (numeric)
                   // - Just term_label (string)
-                  if (is_string($value_to_set) && !empty($value_to_set)) {
+                  if (!empty($value_to_set) && !is_array($value_to_set)) {
                     // Get the first target vocabulary for this field.
                     $handler_settings = $field_definition->getSetting('handler_settings') ?? [];
                     $target_bundles = $handler_settings['target_bundles'] ?? [];
@@ -1969,5 +1982,117 @@ abstract class BaseAlbumAction extends ConfigurableActionBase implements Contain
    *   The media entity.
    */
   abstract public function execute($entity = NULL);
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
+    return parent::validateConfigurationForm($form, $form_state);
+  }
+
+  /**
+   * Process autocreate terms - create new terms if they don't exist.
+   *
+   * @param array $grouped_media_fields
+   *   The grouped media fields from form submission.
+   *
+   * @return array
+   *   The processed fields with term IDs.
+   */
+  protected function ___processAutocreateTerms(array $grouped_media_fields): array {
+    $config = \Drupal::config('media_album_av.settings');
+
+    foreach ($grouped_media_fields as $designation_key => &$field_data) {
+      if (!is_array($field_data) || empty($field_data['field_names'])) {
+        continue;
+      }
+
+      foreach ($field_data['field_names'] as $field_name) {
+        $media_types = $this->entityTypeManager->getStorage('media_type')->loadMultiple();
+
+        foreach ($media_types as $media_type_id => $media_type) {
+          $category_config = $config->get('category_fields.' . $media_type_id);
+
+          if (!$category_config || ($category_config['field_name'] ?? '') !== $field_name) {
+            continue;
+          }
+
+          if (empty($category_config['autocreate']) || empty($field_data['value'])) {
+            break;
+          }
+
+          try {
+            $field_config = $this->entityTypeManager
+              ->getStorage('field_config')
+              ->load('media.' . $media_type_id . '.' . $field_name);
+
+            if ($field_config) {
+              // ↓ Remplace toute la logique de détection précédente.
+              $resolved = $this->resolveAutocreateValue($field_data['value'], $field_config);
+              if ($resolved && $resolved !== $field_data['value']) {
+                $field_data['value'] = $resolved;
+                \Drupal::logger('media_drop')->info(
+                'Autocreate resolved field "@field" → term ID @id',
+                ['@field' => $field_name, '@id' => $resolved]
+                );
+              }
+            }
+          }
+          catch (\Exception $e) {
+            \Drupal::logger('media_drop')->error(
+            'resolveAutocreateValue failed for "@field": @error',
+            ['@field' => $field_name, '@error' => $e->getMessage()]
+            );
+          }
+          break;
+        }
+      }
+    }
+
+    return $grouped_media_fields;
+  }
+
+  /**
+   * Extrait et sauvegarde un terme autocreate depuis une valeur de widget entity_reference.
+   *
+   * @param mixed $raw_value
+   *   La valeur brute issue du form_state (peut être string, int, array avec 'entity').
+   * @param \Drupal\field\Entity\FieldConfig $field_config
+   *   La config du champ pour récupérer le vocabulary_id de fallback.
+   *
+   * @return mixed
+   *   L'ID du terme (int), ou la valeur originale si aucun traitement nécessaire.
+   */
+  protected function ___resolveAutocreateValue($raw_value, $field_config) {
+    // Cas 1 : tableau avec une entité non sauvegardée (autocreate Drupal natif).
+    if (is_array($raw_value) && isset($raw_value[0]['entity'])) {
+      $entity = $raw_value[0]['entity'];
+      if ($entity instanceof EntityInterface && $entity->isNew()) {
+        $entity->save();
+        return $entity->id();
+      }
+      if (isset($raw_value[0]['target_id']) && is_numeric($raw_value[0]['target_id'])) {
+        return (int) $raw_value[0]['target_id'];
+      }
+    }
+
+    // Cas 2 : format "label (ID)" généré par l'autocomplete.
+    if (is_string($raw_value) && preg_match('/\((\d+)\)$/', trim($raw_value), $matches)) {
+      return (int) $matches[1];
+    }
+
+    // Cas 3 : string pure = nouveau terme à créer manuellement.
+    if (is_string($raw_value) && !empty($raw_value) && !is_numeric($raw_value)) {
+      $handler_settings = $field_config->getSetting('handler_settings') ?? [];
+      $target_bundles   = $handler_settings['target_bundles'] ?? [];
+      $vocabulary_id    = !empty($target_bundles) ? array_key_first($target_bundles) : NULL;
+
+      if ($vocabulary_id) {
+        return $this->findOrCreateTaxonomyTerm($raw_value, $vocabulary_id);
+      }
+    }
+
+    return $raw_value;
+  }
 
 }
