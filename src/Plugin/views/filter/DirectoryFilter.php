@@ -57,11 +57,14 @@ class DirectoryFilter extends FilterPluginBase {
     $exposed_input = $this->view->getExposedInput();
     $identifier    = $this->options['expose']['identifier'] ?? 'directory';
 
+    // Get the media directory vocabulary from configuration.
+    $vocabulary = $this->getMediaDirectoryVocabulary();
+
     // Chargement des termes.
     $options = ['0' => '- Racine -'];
     $terms   = \Drupal::entityTypeManager()
       ->getStorage('taxonomy_term')
-      ->loadTree('media_album_av_folders');
+      ->loadTree($vocabulary);
     foreach ($terms as $term) {
       $options[$term->tid] = str_repeat('-', $term->depth) . ' ' . $term->name;
     }
@@ -262,6 +265,34 @@ class DirectoryFilter extends FilterPluginBase {
       'rendered_strip' => FALSE,
     ],
     ];
+  }
+
+  /**
+   * Get the media directory vocabulary ID.
+   *
+   * Gets the vocabulary from media_drop configuration, or falls back to
+   * the value from media_album_av settings, or defaults to 'media_album_av_folders'.
+   *
+   * @return string
+   *   The vocabulary ID to use for media directories.
+   */
+  private function getMediaDirectoryVocabulary(): string {
+    // Try media_drop settings first.
+    $media_drop_config = \Drupal::config('media_drop.settings');
+    $vocabulary = $media_drop_config->get('media_directory_vocabulary');
+    if (!empty($vocabulary)) {
+      return $vocabulary;
+    }
+
+    // Try media_album_av settings.
+    $media_album_av_config = \Drupal::config('media_album_av.settings');
+    $vocabulary = $media_album_av_config->get('prefered_media_directory');
+    if (!empty($vocabulary)) {
+      return $vocabulary;
+    }
+
+    // Default to 'media_album_av_folders'.
+    return 'media_album_av_folders';
   }
 
 }

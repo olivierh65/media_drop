@@ -5,11 +5,39 @@ namespace Drupal\media_drop\Form;
 use Drupal\Core\Url;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Media Drop general configuration form.
  */
 class AdminSettingsForm extends ConfigFormBase {
+
+  /**
+   * The entity type manager.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   */
+  protected $entityTypeManager;
+
+  /**
+   * Constructs an AdminSettingsForm object.
+   *
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+   *   The entity type manager.
+   */
+  public function __construct(EntityTypeManagerInterface $entity_type_manager) {
+    $this->entityTypeManager = $entity_type_manager;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('entity_type.manager')
+    );
+  }
 
   /**
    * {@inheritdoc}
@@ -103,6 +131,30 @@ class AdminSettingsForm extends ConfigFormBase {
       '#description' => $this->t('Display image thumbnails in the upload interface.'),
     ];
 
+    // Directories tab.
+    $form['directories_tab'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Directories'),
+      '#group' => 'tabs',
+    ];
+
+    $form['directories_tab']['description'] = [
+      '#type' => 'markup',
+      '#markup' => '<p>' . $this->t('Configure the taxonomy used for organizing media into directories.') . '</p>',
+    ];
+
+    // Get available vocabularies.
+    $vocabularies = $this->getVocabularies();
+
+    $form['directories_tab']['media_directory_vocabulary'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Media Directory Vocabulary'),
+      '#description' => $this->t('Select the taxonomy vocabulary to use for organizing media into directories.'),
+      '#options' => ['' => '- ' . $this->t('None') . ' -'] + $vocabularies,
+      '#default_value' => $this->getDefaultMediaDirectoryVocabulary($config, $vocabularies),
+      '#required' => FALSE,
+    ];
+
     // Security tab.
     $form['security_tab'] = [
       '#type' => 'details',
@@ -156,9 +208,64 @@ class AdminSettingsForm extends ConfigFormBase {
       ->set('enable_image_preview', $form_state->getValue('enable_image_preview'))
       ->set('require_user_name', $form_state->getValue('require_user_name'))
       ->set('token_lifetime', $form_state->getValue('token_lifetime'))
+      ->set('media_directory_vocabulary', $form_state->getValue('media_directory_vocabulary'))
       ->save();
 
     parent::submitForm($form, $form_state);
+  }
+
+  /**
+   * Get available vocabularies.
+   *
+   * @return array
+   *   Array of vocabulary options.
+   */
+  private function getVocabularies() {
+    $options = [];
+    $vocabularies = $this->entityTypeManager->getStorage('taxonomy_vocabulary')->loadMultiple();
+
+    foreach ($vocabularies as $vocab) {
+      $options[$vocab->id()] = $vocab->label();
+    }
+
+    return $options;
+  }
+
+  /**
+   * Get the default media directory vocabulary.
+   *
+   * Tries to use the value from media_album_av settings, then falls back to
+   * 'media_album_av_folders' if it exists, otherwise returns empty string.
+   *
+   * @param \Drupal\Core\Config\ImmutableConfig $config
+   *   The media_drop.settings config.
+   * @param array $available_vocabularies
+   *   The list of available vocabularies.
+   *
+   * @return string
+   *   The vocabulary ID to use as default.
+   */
+  private function getDefaultMediaDirectoryVocabulary($config, $available_vocabularies) {
+    // First, check if a value is already saved in media_drop settings.
+    $saved_value = $config->get('media_directory_vocabulary');
+    if (!empty($saved_value) && array_key_exists($saved_value, $available_vocabularies)) {
+      return $saved_value;
+    }
+
+    // Try to get the value from media_album_av settings.
+    $media_album_av_config = \Drupal::config('media_album_av.settings');
+    $media_album_av_directory = $media_album_av_config->get('prefered_media_directory');
+    if (!empty($media_album_av_directory) && array_key_exists($media_album_av_directory, $available_vocabularies)) {
+      return $media_album_av_directory;
+    }
+
+    // Fall back to 'media_album_av_folders' if it exists.
+    if (array_key_exists('media_album_av_folders', $available_vocabularies)) {
+      return 'media_album_av_folders';
+    }
+
+    // No suitable default found.
+    return '';
   }
 
 }
